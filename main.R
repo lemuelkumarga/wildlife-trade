@@ -19,7 +19,7 @@ output_dir <- "output/"
 options(scipen = 999)
 data <- read.csv(paste0(data_dir,"2015.csv"))
 summary <- data %>% 
-          filter(Class != "") %>%
+          filter(Class != "" & Purpose != 'S') %>%
           mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
                               ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
                                      ifelse(Exporter.reported.quantity > Importer.reported.quantity,
