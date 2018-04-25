@@ -39,3 +39,6 @@ rsconnect/
 
 # README files
 README_files/*
+
+# IUCN Red List Database - Due to Copyright
+data/iucn_list.csv

@@ -17,47 +17,6 @@ to pull files > 100 MB. Please follow instructions [here](https://github.com/git
 - After Git LFS is installed, type `git lfs pull` to download the large files in the project.
 
 
-## Creating A New Repository from the Template
-
-To create a new project by using this template as skeleton, we need to manually "fork" this template. Extra precaution is also required as the R-template contains links to other repos (submodules).
-
-Please replicate the steps below in Terminal to ensure success.
-
-``` sh
-# First: Create an empty repository in github via https://github.com/new
-
-# Clone the newly created empty repo
-git clone https://github.com/<username>/<new_repo_project_name>
-
-# Define this clone as a fork of R-template
-cd <new_repo_project_name> 
-git remote add upstream https://github.com/lemuelkumarga/R-template.git
-
-# Pull all the files from the template
-git pull upstream master
-
-# Remove the "Create New Repo from Template section"
-sed -i 's/, prepend_mds=c("shared\/md\/requirements.md","shared\/md\/creating.md","shared\/md\/cloning.md")//g' main.Rmd
-
-# Initialize submodules
-git submodule init
-git submodule update
-
-# When cloned, submodules are detached from the HEAD. We attempt to rectify this issue to prevent problems in git
-cd shared
-git checkout -b tmp
-git checkout master
-git merge tmp
-git branch -d tmp
-cd ..
-
-# Push your changes to the cloud
-git push -u origin master
-
-# Return to original folder if desired
-cd ..
-```
-
 ## Cloning the Repository
 
 Cloning the repository is not as straightforward due to the presence of git submodules.
@@ -66,10 +25,10 @@ Please replicate the steps below in Terminal to ensure success.
 
 ``` sh
 # Clone the repo as usual
-git clone https://github.com/lemuelkumarga/R-template
+git clone https://github.com/lemuelkumarga/wildlife-trade
 
 # Initialize submodule
-cd R-template
+cd wildlife-trade
 git submodule init
 git submodule update
 
@@ -85,10 +44,10 @@ cd ../../
 ```
 
 ---
-Insert Title Here
+Locating the Supply and Demand for Endangered Wildlife
 ================
 <span class="meta">Lemuel Kumarga</span>
-<span class="meta">Mon YYYY</span>
+<span class="meta">May 2018</span>
 
 ## Problem Description
 
@@ -117,10 +76,10 @@ attached_pkg_str <- paste0("Attached Packages: ",paste(names(si[["otherPkgs"]]),
 cat(paste0(base_pkg_str,"\n",attached_pkg_str))
 ```
 
-    ## Base Packages: stats, graphics, grDevices, utils, datasets, base
+    ## Base Packages: stats, graphics, grDevices, utils, datasets, methods, base
     ## Attached Packages: tidyr, pander, ggplot2, dplyr, knitr
 
-## Lorem Ipsum
+## About the Data
 
 <a data-toggle="popover" title="Lorem Ipsum" data-content="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Data obtained from https://www.lipsum.com/.">Lorem
 ipsum</a> dolor sit amet, consectetur adipiscing elit. Vivamus sit amet
@@ -147,3 +106,27 @@ tortor, placerat iaculis facilisis vitae, euismod id nisl. Duis
 venenatis pharetra arcu sed sagittis. Vivamus eu ex vitae odio eleifend
 congue. Proin iaculis imperdiet sapien, et lobortis libero efficitur in.
 In ac ex elementum, ornare elit id, lacinia erat.
+
+## Pre-Processing
+
+### Rescoping the Species
+
+### Standardizing the Terms
+
+## Exploration
+
+## Tracing Supply and Demand
+
+### The Algorithm
+
+### Following the Demand
+
+### Finding the Supply
+
+## Summary of Results
+
+## Limitations
+
+## References
+
+## Lorem Ipsum
