@@ -55,9 +55,9 @@ From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_
 1. Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular unit. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details)
 2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN's Red List</a>.
 3. Terms are <span class="hl">heterogenous</span>. For examples, some trade quantities correspond to bodies, while others correspond to feathers.
-4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts, or in terms of weight/volume/arbitrary units.
+4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank Unit), or in terms of weight/volume/qualitative units.
 
-As can be seen, some pre-processing of the data would be required before our analysis can proceed. In particular, (3) and (4) need to be standardized to allow comparison across species.
+As can be seen, some pre-processing would be required before our analysis can proceed. In particular, (3) and (4) need to be standardized to allow comparison across species.
 
 ## Pre-Processing
 

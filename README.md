@@ -100,7 +100,7 @@ attached_pkg_str <- paste0("Attached Packages: ",paste(names(si[["otherPkgs"]]),
 cat(paste0(base_pkg_str,"\n",attached_pkg_str))
 ```
 
-    ## Base Packages: stats, graphics, grDevices, utils, datasets, methods, base
+    ## Base Packages: stats, graphics, grDevices, utils, datasets, base
     ## Attached Packages: bindrcpp, tidyr, pander, ggplot2, dplyr, knitr
 
 ## About the Data
@@ -180,12 +180,12 @@ and the above summmary, we know that:
     trade quantities correspond to bodies, while others correspond to
     feathers.
 4.  Units are also <span class="hl">varied</span>. Quantities can be
-    quoted as distinct counts, or in terms of weight/volume/arbitrary
-    units.
+    quoted as distinct counts (i.e. blank Unit), or in terms of
+    weight/volume/qualitative units.
 
-As can be seen, some pre-processing of the data would be required before
-our analysis can proceed. In particular, (3) and (4) need to be
-standardized to allow comparison across species.
+As can be seen, some pre-processing would be required before our
+analysis can proceed. In particular, (3) and (4) need to be standardized
+to allow comparison across species.
 
 ## Pre-Processing
 
