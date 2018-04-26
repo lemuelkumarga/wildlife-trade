@@ -12,7 +12,7 @@
 <meta name="author" content="Lemuel Kumarga" />
 
 
-<title>Locating the Supply and Demand for Endangered Wildlife</title>
+<title>Identifying Major Players in Endangered Wildlife Trade</title>
 
 <script src="index_files/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -144,7 +144,7 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Locating the Supply and Demand for Endangered Wildlife</h1>
+<h1 class="title toc-ignore">Identifying Major Players in Endangered Wildlife Trade</h1>
 <h4 class="author"><em><span class="meta">Lemuel Kumarga</span></em></h4>
 <h4 class="date"><em><span class="meta">May 2018</span></em></h4>
 
@@ -153,7 +153,9 @@ $(document).ready(function () {
 
 <section id="problem-description" class="level2">
 <h2>Problem Description</h2>
-<p>Insert Problem Description Here.</p>
+<p>Since the Stone Age, mankind has turned to nature for food, commerce and companionship. Our impact back then was minimal as resources were consumed at sustainable rates. However, over the past few decades, nature is increasingly under threat from overconsumption and excess capitalism. Our planet is facing multiple challenges on the environmental front, ranging from global warming to forest degradation.</p>
+<p>One corrosive impact of our greed is the shrinking wildlife diversity and population. In 2000, IUCN counted a total of around <a href="https://portals.iucn.org/library/sites/library/files/documents/RL-2000-001.pdf" target="_blank">10,000 endangered species</a>. By 2017, this number has doubled to <a href="https://www.statista.com/statistics/269910/red-list-endangered-animals-2010-and-2000/" target="_blank">24,431 species</a>. In the face of such overwhelming statistics, it is imperative for us to take action and protect these species from extinction. In this project, we will aim to contribute by using data from both <a href="https://www.cites.org/eng/disc/what.php" target="_blank">CITES (Convention on Internation Trade in Endangered Species of Wild Fauna and Flora)</a> and <a href="http://www.iucnredlist.org/about/introduction" target="_blank">IUCN</a> <span class="hl">to identify the major players behind endangered wildlife trade</span>.</p>
+<p>To skip the methodology and proceed straight to the results, please click <a href="#summary-of-results">here</a>.</p>
 </section>
 <section id="preliminaries" class="level2">
 <h2>Preliminaries</h2>
@@ -179,8 +181,135 @@ cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
 </section>
 <section id="about-the-data" class="level2">
 <h2>About the Data</h2>
-<p><a data-toggle="popover" title="Lorem Ipsum" data-content="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Data obtained from https://www.lipsum.com/.">Lorem ipsum</a> dolor sit amet, consectetur adipiscing elit. Vivamus sit amet urna nunc. Ut bibendum sem nibh, lobortis tempor dolor scelerisque ut. Nunc elit lorem, accumsan in pharetra ac, sodales sit amet arcu. In hac habitasse platea dictumst. Sed accumsan fringilla purus. Aliquam tincidunt ultricies sapien, eu pellentesque quam porttitor dignissim. Cras convallis, ipsum feugiat porttitor tempus, tortor orci fringilla augue, vel ultrices magna massa varius nibh. Ut gravida posuere dolor, non tincidunt eros sollicitudin in. Curabitur quis odio condimentum lectus congue fermentum id eget odio. Proin sagittis, nisl ac imperdiet ornare, metus risus tempor velit, gravida laoreet lacus purus in metus. Sed sed cursus dolor. Aliquam lobortis purus eget iaculis interdum. Maecenas nec eros magna.</p>
-<p>Curabitur at urna in urna scelerisque maximus non ut urna. Nulla pharetra ipsum neque, quis dapibus ex egestas a. Nunc condimentum lectus et sapien convallis molestie. Suspendisse vel massa fringilla, imperdiet diam ut, fringilla lacus. Aliquam molestie orci purus, a tristique lacus malesuada quis. Ut rutrum lacus non vulputate iaculis. Cras tincidunt risus nisl, lobortis pellentesque purus laoreet in. Ut malesuada erat eu massa efficitur, condimentum euismod ligula imperdiet. Nunc lorem tortor, placerat iaculis facilisis vitae, euismod id nisl. Duis venenatis pharetra arcu sed sagittis. Vivamus eu ex vitae odio eleifend congue. Proin iaculis imperdiet sapien, et lobortis libero efficitur in. In ac ex elementum, ornare elit id, lacinia erat.</p>
+<p>We will be using wildlife trade data from <a href="https://www.cites.org/" target="_blank">CITES</a> for the period of 2001 to 2015, with the following caveats:</p>
+<ul>
+<li>2016 and 2017 were excluded due to data lag in the year of analysis (2018). (See <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">Section 1.2.2 of the guide</a> for more details).</li>
+<li>Analysis will be restricted to trades whose sources originated from the wild.</li>
+</ul>
+<p>Listed below is an overview of the CITES data:</p>
+<pre class="r"><code>dataset &lt;- read.csv(paste0(data_dir,&quot;cites_2001.csv&quot;))
+for (yy in 2002:2015) {
+  dataset &lt;- rbind(dataset, read.csv(paste0(data_dir,&quot;cites_&quot;,yy,&quot;.csv&quot;)))
+}
+
+cols_summary &lt;- data_overview(dataset)
+  
+pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please visit &lt;a href=&quot;https://trade.cites.org/&quot; target=&quot;_blank&quot;&gt;CITES Trade Database&lt;/a&gt;&#39;)</code></pre>
+<div class="table-responsive"><table>
+<caption>Wildlife Trade Data - For more info, please visit <a href="https://trade.cites.org/" target="_blank">CITES Trade Database</a></caption>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 14%" />
+<col style="width: 38%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">ColumnNames</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Examples</th>
+<th style="text-align: left;">PctFilled</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Year</td>
+<td style="text-align: left;">INTEGER</td>
+<td style="text-align: left;">2001 // 2002 // 2003 // 2004 // 2005</td>
+<td style="text-align: left;">100%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">App.</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">I // II // III // N</td>
+<td style="text-align: left;">100%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Taxon</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">Aquila heliaca // Haliaeetus albicilla // Haliaeetus leucocephalus // Harpia harpyja // Acipenser sturio</td>
+<td style="text-align: left;">100%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Class</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">Aves // Actinopteri // Mammalia // Reptilia // Amphibia</td>
+<td style="text-align: left;">93%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Order</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">Falconiformes // Acipenseriformes // Anseriformes // Pinales // Primates</td>
+<td style="text-align: left;">99%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Family</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">Accipitridae // Acipenseridae // Anatidae // Araucariaceae // Atelidae</td>
+<td style="text-align: left;">98%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Genus</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">Aquila // Haliaeetus // Harpia // Acipenser // Branta</td>
+<td style="text-align: left;">97%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Importer</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">US // AT // GL // CA // CL</td>
+<td style="text-align: left;">99%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Exporter</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">KZ // DK // US // CA // PT</td>
+<td style="text-align: left;">98%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Origin</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">GL // US // BR // EC // PA</td>
+<td style="text-align: left;">44%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Importer.reported.quantity</td>
+<td style="text-align: left;">NUMERIC</td>
+<td style="text-align: left;">100 // 46 // 1 // 33 // 188</td>
+<td style="text-align: left;">50%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Exporter.reported.quantity</td>
+<td style="text-align: left;">NUMERIC</td>
+<td style="text-align: left;">57 // 1 // 12 // 89 // 6</td>
+<td style="text-align: left;">72%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Term</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">specimens // live // bodies // feathers // claws</td>
+<td style="text-align: left;">100%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Unit</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">ml // kg // g // sets // flasks</td>
+<td style="text-align: left;">11%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Purpose</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">S // P // Z // L // H</td>
+<td style="text-align: left;">96%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Source</td>
+<td style="text-align: left;">CHARACTER</td>
+<td style="text-align: left;">W // U</td>
+<td style="text-align: left;">97%</td>
+</tr>
+</tbody>
+</table></div>
 </section>
 <section id="pre-processing" class="level2">
 <h2>Pre-Processing</h2>
@@ -211,6 +340,10 @@ cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
 </section>
 <section id="limitations" class="level2">
 <h2>Limitations</h2>
+<ul>
+<li>Wild</li>
+<li>Unidentified Species</li>
+</ul>
 </section>
 <section id="references" class="level2">
 <h2>References</h2>
