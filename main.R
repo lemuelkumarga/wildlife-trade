@@ -12,17 +12,27 @@ packages <- c("dplyr","ggplot2","tidyr","pander")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
-output_dir <- "output/"
+specs_dir <- "specs/"
 
 ## ---- end-of-init
 
 # About the Data ----
 ## ---- data-overview
 
+# Load Data
 dataset <- read.csv(paste0(data_dir,"cites_2001.csv"))
 for (yy in 2002:2015) {
   dataset <- rbind(dataset, read.csv(paste0(data_dir,"cites_",yy,".csv")))
 }
+
+# Add Legends
+dataset <- dataset %>% 
+           left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
+           select(-Purpose) %>%
+           rename(Purpose = Explanation) %>%
+           left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
+           select(-Source) %>%
+           rename(Source = Explanation)
 
 cols_summary <- data_overview(dataset)
 

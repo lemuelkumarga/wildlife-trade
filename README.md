@@ -92,7 +92,7 @@ packages <- c("dplyr","ggplot2","tidyr","pander")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
-output_dir <- "output/"
+specs_dir <- "specs/"
 
 si <- sessionInfo()
 base_pkg_str <- paste0("Base Packages: ",paste(si[["basePkgs"]], collapse=", "))
@@ -119,10 +119,20 @@ period of 2001 to 2015, with the following caveats:
 Listed below is an overview of the CITES data:
 
 ``` r
+# Load Data
 dataset <- read.csv(paste0(data_dir,"cites_2001.csv"))
 for (yy in 2002:2015) {
   dataset <- rbind(dataset, read.csv(paste0(data_dir,"cites_",yy,".csv")))
 }
+
+# Add Legends
+dataset <- dataset %>% 
+           left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
+           select(-Purpose) %>%
+           rename(Purpose = Explanation) %>%
+           left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
+           select(-Source) %>%
+           rename(Source = Explanation)
 
 cols_summary <- data_overview(dataset)
   
@@ -145,12 +155,37 @@ pander(cols_summary, caption='Wildlife Trade Data - For more info, please visit 
 | Exporter.reported.quantity | NUMERIC   | 57 // 1 // 12 // 89 // 6                                                                                 | 72%       |
 | Term                       | CHARACTER | specimens // live // bodies // feathers // claws                                                         | 100%      |
 | Unit                       | CHARACTER | ml // kg // g // sets // flasks                                                                          | 11%       |
-| Purpose                    | CHARACTER | S // P // Z // L // H                                                                                    | 96%       |
-| Source                     | CHARACTER | W // U                                                                                                   | 97%       |
+| Purpose                    | CHARACTER | Scientific // Personal // Zoo // Law Enforcement // Hunting                                              | 96%       |
+| Source                     | CHARACTER | Wild // Unknown                                                                                          | 97%       |
 
 Wildlife Trade Data - For more info, please visit
 <a href="https://trade.cites.org/" target="_blank">CITES Trade
 Database</a>
+
+From the
+<a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a>
+and the above summmary, we know that:
+
+1.  Each row corresponds to the <span class="hl">total trade</span>
+    between two countries for a particular species at a particular unit.
+    This is contrary to popular belief that each row corresponds to one
+    shipment. (See Section 3.1 for more details)
+2.  Not all animals in the data are endangered. For example, the
+    <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed
+    eagle (Haliaeetus albicilla)</a> is specified as
+    <span class="hl">Least Concern</span> on
+    <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN’s
+    Red List</a>.
+3.  Terms are <span class="hl">heterogenous</span>. For examples, some
+    trade quantities correspond to bodies, while others correspond to
+    feathers.
+4.  Units are also <span class="hl">varied</span>. Quantities can be
+    quoted as distinct counts, or in terms of weight/volume/arbitrary
+    units.
+
+As can be seen, some pre-processing of the data would be required before
+our analysis can proceed. In particular, (3) and (4) need to be
+standardized to allow comparison across species.
 
 ## Pre-Processing
 
@@ -176,5 +211,3 @@ Database</a>
   - Unidentified Species
 
 ## References
-
-## Lorem Ipsum

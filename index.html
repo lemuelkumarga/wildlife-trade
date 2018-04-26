@@ -170,7 +170,7 @@ packages &lt;- c(&quot;dplyr&quot;,&quot;ggplot2&quot;,&quot;tidyr&quot;,&quot;p
 load_or_install.packages(packages)
 
 data_dir &lt;- &quot;data/&quot;
-output_dir &lt;- &quot;output/&quot;
+specs_dir &lt;- &quot;specs/&quot;
 
 si &lt;- sessionInfo()
 base_pkg_str &lt;- paste0(&quot;Base Packages: &quot;,paste(si[[&quot;basePkgs&quot;]], collapse=&quot;, &quot;))
@@ -187,10 +187,20 @@ cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
 <li>Analysis will be restricted to trades whose sources originated from the wild.</li>
 </ul>
 <p>Listed below is an overview of the CITES data:</p>
-<pre class="r"><code>dataset &lt;- read.csv(paste0(data_dir,&quot;cites_2001.csv&quot;))
+<pre class="r"><code># Load Data
+dataset &lt;- read.csv(paste0(data_dir,&quot;cites_2001.csv&quot;))
 for (yy in 2002:2015) {
   dataset &lt;- rbind(dataset, read.csv(paste0(data_dir,&quot;cites_&quot;,yy,&quot;.csv&quot;)))
 }
+
+# Add Legends
+dataset &lt;- dataset %&gt;% 
+           left_join(read.csv(paste0(specs_dir,&quot;cites_purpose.csv&quot;)), by=&quot;Purpose&quot;) %&gt;%
+           select(-Purpose) %&gt;%
+           rename(Purpose = Explanation) %&gt;%
+           left_join(read.csv(paste0(specs_dir,&quot;cites_source.csv&quot;)), by=&quot;Source&quot;) %&gt;%
+           select(-Source) %&gt;%
+           rename(Source = Explanation)
 
 cols_summary &lt;- data_overview(dataset)
   
@@ -299,17 +309,25 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 <tr class="odd">
 <td style="text-align: left;">Purpose</td>
 <td style="text-align: left;">CHARACTER</td>
-<td style="text-align: left;">S // P // Z // L // H</td>
+<td style="text-align: left;">Scientific // Personal // Zoo // Law Enforcement // Hunting</td>
 <td style="text-align: left;">96%</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Source</td>
 <td style="text-align: left;">CHARACTER</td>
-<td style="text-align: left;">W // U</td>
+<td style="text-align: left;">Wild // Unknown</td>
 <td style="text-align: left;">97%</td>
 </tr>
 </tbody>
 </table></div>
+<p>From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summmary, we know that:</p>
+<ol type="1">
+<li>Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular unit. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details)</li>
+<li>Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN’s Red List</a>.</li>
+<li>Terms are <span class="hl">heterogenous</span>. For examples, some trade quantities correspond to bodies, while others correspond to feathers.</li>
+<li>Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts, or in terms of weight/volume/arbitrary units.</li>
+</ol>
+<p>As can be seen, some pre-processing of the data would be required before our analysis can proceed. In particular, (3) and (4) need to be standardized to allow comparison across species.</p>
 </section>
 <section id="pre-processing" class="level2">
 <h2>Pre-Processing</h2>
@@ -347,9 +365,6 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 </section>
 <section id="references" class="level2">
 <h2>References</h2>
-</section>
-<section id="lorem-ipsum" class="level2">
-<h2>Lorem Ipsum</h2>
 </section>
 
 
