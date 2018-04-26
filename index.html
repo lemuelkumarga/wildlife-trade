@@ -176,7 +176,7 @@ si &lt;- sessionInfo()
 base_pkg_str &lt;- paste0(&quot;Base Packages: &quot;,paste(si[[&quot;basePkgs&quot;]], collapse=&quot;, &quot;))
 attached_pkg_str &lt;- paste0(&quot;Attached Packages: &quot;,paste(names(si[[&quot;otherPkgs&quot;]]), collapse=&quot;, &quot;))
 cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
-<pre><code>## Base Packages: stats, graphics, grDevices, utils, datasets, base
+<pre><code>## Base Packages: stats, graphics, grDevices, utils, datasets, methods, base
 ## Attached Packages: tidyr, pander, ggplot2, dplyr, knitr</code></pre>
 </section>
 <section id="about-the-data" class="level2">
@@ -320,10 +320,10 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 </tr>
 </tbody>
 </table></div>
-<p>From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summmary, we know that:</p>
+<p>From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summary, we know that:</p>
 <ol type="1">
 <li>Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular unit. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details)</li>
-<li>Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN’s Red List</a>.</li>
+<li>Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN Red List</a>.</li>
 <li>Terms are <span class="hl">heterogenous</span>. For examples, some trade quantities correspond to bodies, while others correspond to feathers.</li>
 <li>Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank Unit), or in terms of weight/volume/qualitative units.</li>
 </ol>
@@ -333,6 +333,127 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 <h2>Pre-Processing</h2>
 <section id="rescoping-the-species" class="level3">
 <h3>Rescoping the Species</h3>
+<section id="animals-only" class="level4">
+<h4>Animals Only</h4>
+<p>In the data, taxonomies with blank <span class="hl">Class</span> correspond to plants. For the purposes of this analysis, we will exclude non-animals from the dataset.</p>
+<pre class="r"><code>pre_clean &lt;- nrow(dataset)
+
+dataset &lt;- dataset %&gt;%
+           filter(Class != &quot;&quot;)
+
+post_clean &lt;- nrow(dataset)
+
+cat(sprintf(&quot;%i rows removed (%.0f%% of total)&quot;,pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
+<pre><code>## 31068 rows removed (7% of total)</code></pre>
+</section>
+<section id="endangered-only" class="level4">
+<h4>Endangered Only</h4>
+<p>Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public use. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.</p>
+<p>Listed below is an example of the IUCN’s data:</p>
+<pre class="r"><code># Create an account with IUCN and download the csv from http://www.iucnredlist.org/search/saved?id=90695
+# Move the csv into the data folder and rename it as iucn_list.csv
+
+iucn_dataset &lt;- read.csv(paste0(data_dir,&quot;iucn_list.csv&quot;), fileEncoding=&quot;latin1&quot;)
+
+pander(head(iucn_dataset %&gt;% select(Class, Order, Family, Genus, Species, Common.names..Eng.,Red.List.status),3))</code></pre>
+<div class="table-responsive"><table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 16%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 12%" />
+<col style="width: 19%" />
+<col style="width: 15%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Class</th>
+<th style="text-align: left;">Order</th>
+<th style="text-align: left;">Family</th>
+<th style="text-align: left;">Genus</th>
+<th style="text-align: left;">Species</th>
+<th style="text-align: left;">Common.names..Eng.</th>
+<th style="text-align: left;">Red.List.status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">GASTROPODA</td>
+<td style="text-align: left;">STYLOMMATOPHORA</td>
+<td style="text-align: left;">ENDODONTIDAE</td>
+<td style="text-align: left;">Aaadonta</td>
+<td style="text-align: left;">angaurana</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">CR</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">GASTROPODA</td>
+<td style="text-align: left;">STYLOMMATOPHORA</td>
+<td style="text-align: left;">ENDODONTIDAE</td>
+<td style="text-align: left;">Aaadonta</td>
+<td style="text-align: left;">constricta</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">EN</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">GASTROPODA</td>
+<td style="text-align: left;">STYLOMMATOPHORA</td>
+<td style="text-align: left;">ENDODONTIDAE</td>
+<td style="text-align: left;">Aaadonta</td>
+<td style="text-align: left;">fuscozonata</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">EN</td>
+</tr>
+</tbody>
+</table></div>
+<p>Using the data above, we can subsequently filter non-endangered species out of the CITES dataset.</p>
+<pre class="r"><code>iucn_dataset &lt;- iucn_dataset %&gt;% 
+                select(Order,
+                       Family,
+                       Genus,
+                       Species,
+                       CommonName = Common.names..Eng.,
+                       IUCNStatus = Red.List.status)
+iucn_dataset$IUCNStatus &lt;- factor(iucn_dataset$IUCNStatus, 
+                                  levels=c(&quot;EW&quot;,&quot;EX&quot;,&quot;VU&quot;,&quot;EN&quot;,&quot;CR&quot;),
+                                  ordered = TRUE)
+
+# Different trades might have different level of granularities
+# Some taxonomies only exist until Order, some until Family, and
+# some until Genus. For such circumstances, we will assume the 
+# worst case scenario, i.e. choose the most endangered status
+# among species in the same family
+species_iucn_list &lt;- iucn_dataset %&gt;%
+                     mutate(Taxon = paste(Genus, Species)) %&gt;%
+                     select(Taxon, CommonName, IUCNStatus)
+group_iucn &lt;- function (granular) {
+  tmp_iucn_list &lt;- iucn_dataset
+  tmp_iucn_list[&quot;Taxon&quot;] &lt;- lapply(tmp_iucn_list[granular],
+                                   function (s) { paste0(toupper(substr(s,1,1)),tolower(substr(s,2,nchar(s))), &quot; spp.&quot;)})
+  tmp_iucn_list %&gt;%
+    group_by(Taxon) %&gt;%
+    summarise(CommonName = &quot;&quot;,
+              IUCNStatus = max(IUCNStatus))
+}
+genus_iucn_list &lt;- group_iucn(&quot;Genus&quot;)
+family_iucn_list &lt;- group_iucn(&quot;Family&quot;)
+order_iucn_list &lt;- group_iucn(&quot;Order&quot;)
+iucn_list &lt;- rbind(species_iucn_list, 
+                   genus_iucn_list, 
+                   family_iucn_list, 
+                   order_iucn_list)
+
+pre_clean &lt;- nrow(dataset)
+
+dataset &lt;- dataset %&gt;%
+           inner_join(iucn_list, by=&quot;Taxon&quot;)
+
+post_clean &lt;- nrow(dataset)
+  
+cat(sprintf(&quot;%i rows removed (%.0f%% of total)&quot;,pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
+<pre><code>## 318189 rows removed (75% of total)</code></pre>
+</section>
 </section>
 <section id="standardizing-the-terms" class="level3">
 <h3>Standardizing the Terms</h3>

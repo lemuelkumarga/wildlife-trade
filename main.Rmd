@@ -50,10 +50,10 @@ Listed below is an overview of the CITES data:
 pander(cols_summary, caption='Wildlife Trade Data - For more info, please visit <a href="https://trade.cites.org/" target="_blank">CITES Trade Database</a>')
 ```
 
-From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summmary, we know that:
+From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summary, we know that:
 
 1. Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular unit. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details)
-2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN's Red List</a>.
+2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN Red List</a>.
 3. Terms are <span class="hl">heterogenous</span>. For examples, some trade quantities correspond to bodies, while others correspond to feathers.
 4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank Unit), or in terms of weight/volume/qualitative units.
 
@@ -62,6 +62,35 @@ As can be seen, some pre-processing would be required before our analysis can pr
 ## Pre-Processing
 
 ### Rescoping the Species
+
+#### Animals Only
+
+In the data, taxonomies with blank <span class="hl">Class</span> correspond to plants. For the purposes of this analysis, we will exclude non-animals from the dataset.
+
+```{r}
+<<pp-restrict-animals>>
+
+cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
+
+#### Endangered Only
+
+Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public use. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
+
+Listed below is an example of the IUCN's data:
+
+```{r}
+<<pp-iucn-data>>
+
+pander(head(iucn_dataset %>% select(Class, Order, Family, Genus, Species, Common.names..Eng.,Red.List.status),3))
+```
+
+Using the data above, we can subsequently filter non-endangered species out of the CITES dataset.
+```{r}
+<<pp-restrict-endanger>>
+  
+cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
 
 ### Standardizing the Terms
 
