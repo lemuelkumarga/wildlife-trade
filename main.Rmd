@@ -54,7 +54,7 @@ From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_
 
 1. Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular unit. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details)
 2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN Red List</a>.
-3. Terms are <span class="hl">heterogenous</span>. For examples, some trade quantities correspond to bodies, while others correspond to feathers.
+3. Terms are <span class="hl">heterogenous</span>. For examples, some quantities correspond to bodies, while others correspond to feathers.
 4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank Unit), or in terms of weight/volume/qualitative units.
 
 As can be seen, some pre-processing would be required before our analysis can proceed. In particular, (3) and (4) need to be standardized to allow comparison across species.
@@ -68,31 +68,192 @@ As can be seen, some pre-processing would be required before our analysis can pr
 In the data, taxonomies with blank <span class="hl">Class</span> correspond to plants. For the purposes of this analysis, we will exclude non-animals from the dataset.
 
 ```{r}
+pre_clean <- nrow(dataset)
+
 <<pp-restrict-animals>>
 
+post_clean <- nrow(dataset)
+  
 cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
 #### Endangered Only
 
-Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public use. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
+Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
-Listed below is an example of the IUCN's data:
-
+Using the IUCN data, we can subsequently filter non-endangered species out of the CITES dataset.
 ```{r}
-<<pp-iucn-data>>
+pre_clean <- nrow(dataset)
 
-pander(head(iucn_dataset %>% select(Class, Order, Family, Genus, Species, Common.names..Eng.,Red.List.status),3))
-```
-
-Using the data above, we can subsequently filter non-endangered species out of the CITES dataset.
-```{r}
 <<pp-restrict-endanger>>
-  
+
+post_clean <- nrow(dataset)
+
 cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
 ### Standardizing the Terms
+
+After restricting the dataset to only endangered species, we need to standardize all the terms into universal <span class="hl">trading units</span>. Ideally, 1 trading unit should represent 1 animal.
+
+Thse are the terms left to be standardized:
+
+```{r}
+<<pp-terms-overview>>
+
+output_str <- "List of Terms:\n" %>%
+               paste0(paste0(unique(dataset$Term), collapse=", "),"\n\n") %>%
+               paste0("List of Units:\n") %>%
+               paste0(paste0(unique((dataset %>% 
+                       mutate(Unit = ifelse(Unit == "","count",Unit)))$Unit), 
+                       collapse=", "))
+
+cat(output_str)
+```
+
+#### Scientific Units
+The first thing we notice from the above text is that not all of the scientific units are SI (examples include <span class="hl">cm, g and litres</span>). Let us therefore first standardize all units to SI:
+
+```{r}
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+<<pp-to-si>>
+
+post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+
+cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
+
+#### 1 Term, 1 Unit
+Another problem to rectify is that 1 term can be recorded in different units.
+Consider the term <span class="hl">bodies</span>, which were recorded in counts, kilograms and even metres:
+
+```{r}
+<<pp-term-unit-summary>>
+  
+output_tbl <- term_unit_counts %>%
+              filter(Term == "bodies")
+
+pander(output_tbl)
+```
+
+Ideally, we would be able to convert kilograms of bodies into actual count by identifying each species' weight. However, such methods are time-intensive, and fall outside the scope of this analysis. Therefore, we need to propose a conversion rule that is more manageable and yet still relatively accurate.
+
+In order to ensure that the unit for each term is standardized, we will first choose the target unit for each term. This can be done by identifying the unit whose records (i.e. rows) are highest for each term:
+
+```{r}
+<<pp-term-unit-target>>
+
+output_str <- "Terms [with their Target Unit]:\n"
+terms_w_target_unit <- target_unit %>%
+                       mutate(outputString = paste0(Term, " [", ifelse(TargetUnit == "","count",TargetUnit), "]"))
+
+output_str <- output_str %>%
+              paste0(paste0(terms_w_target_unit$outputString,collapse=", "))
+  
+cat(output_str)
+```
+
+The tricky part comes in when we attempt to convert a quantity from a non-target unit to the target unit. During this step, we will assume that, <span class="hl">for each species, the median quantity of each term-unit pair corresponds to the same number of live animals</span>. In other words, if the median quantity of elephant bodies is 2, and the median quantity of elephant bodies in kgs is 14,000 kg, then the 2 elephant bodies are equivalent to 14,000 kgs.
+
+With this assumption, we can convert a quantity from a non-target unit to a target unit using the following equation:
+
+\[ q_{t} = \frac{q_{nt}}{m_{nt}} \times m_{t} \]
+
+where <br>
+\(q_{t}\) corresponds to the quantity in target unit, <br>
+\(q_{nt}\) corresponds to the quantity in non-target unit, <br>
+\(m_{nt}\) corresponds to the median quantity of the non-target unit (per record), and <br>
+\(m_{t}\) corresponds to the median quantity of the target unit (per record).
+
+With the above formalization, the conversion challenge gets reduced to finding the median quantity for a particular species, term and unit triplet. 
+
+##### The Roll-Up Median Approach
+
+One potential challenge is that we do not have many data points for each species, term and unit triplet. To illustrate, consider the African bush elephant (Loxodonta africana) trades that were recorded in non-target units:
+
+```{r}
+output_tbl <- dataset %>% 
+              filter(Taxon == "Loxodonta africana") %>%
+              left_join(target_unit, by=c("Term"="Term","ConvertedUnit" = "TargetUnit")) %>%
+              filter(is.na(NumberOfUnits)) %>%
+              mutate(Unit = ConvertedUnit) %>%
+              group_by(Taxon, Term, Unit) %>%
+              summarise(Records = n())
+
+pander(head(output_tbl,5))
+```
+
+We see that there is only a <span class="hl">single</span> data point for Loxodonta africana trades whose term and unit are "bodies" and "kg". Such minute sample size is not sufficient to calculate the median quantity. Therefore, to obtain larger sample sizes, a roll-up approach is required:
+
+```{r}
+# For documentation, please visit http://rich-iannone.github.io/DiagrammeR/graphviz_and_mermaid.html
+grViz(paste0("
+  digraph RollUp {
+
+    # Default Specs
+    graph [compound = true, nodesep = .5, ranksep = .25]
+    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled]
+    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    
+    # Input Specs
+    Inp [fillcolor = '",ltxt_color,"', label = '(Species s, Term t, Unit u)', shape = rectangle]
+
+    # Conclude Specs
+    node [shape = oval]
+    Species_Y [label = 'Use the median quantity\nof Species s, Term t and Unit u.', fillcolor = '",get_color(1),"']
+    Genus_Y [label = 'Use the median quantity\nof Genus g, Term t and Unit u.', fillcolor = '",get_color(2),"']
+    Family_Y [label = 'Use the median quantity\nof Family f, Term t and Unit u.', fillcolor = '",get_color(3),"']
+    Order_Y [label = 'Use the median quantity\nof Order o, Term t and Unit u.', fillcolor = '",get_color(4),"']
+    Class_Y [label = 'Use the median quantity\nof Class c, Term t and Unit u.', fillcolor = '",get_color(5),"']
+    Kingdom_Y [label = 'Use the median quantity\nof Term t and Unit u (across all).', fillcolor = '",txt_color,"']
+
+    # Trigger Specs
+    node [shape = diamond, fillcolor = '",bg_color,"', fontcolor = '",txt_color,"', penwidth = 1]
+    Species_T [label = 'Does the Species s\nhave >=10 records\nfor the term t and unit u?']
+    { rank = same; Species_T, Species_Y }
+    Genus_T [label = 'Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?']
+    { rank = same; Genus_T, Genus_Y }
+    Family_T [label = 'Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?']
+    { rank = same; Family_T, Family_Y }
+    Order_T [label = 'Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?']
+    { rank = same; Order_T, Order_Y }
+    Class_T [label = 'Does c (the Class of o)\nhave >=10 records\nfor the term t and unit u?']
+    { rank = same; Class_T, Class_Y }
+
+    # Yes edges
+    Inp -> Species_T
+    edge [arrowhead = 'box', label = 'Yes']
+    Species_T -> Species_Y
+    Genus_T -> Genus_Y
+    Family_T -> Family_Y
+    Order_T -> Order_Y
+    Class_T -> Class_Y
+    
+    # No edges
+    edge [label = '     No']
+    Species_T -> Genus_T
+    Genus_T -> Family_T
+    Family_T -> Order_T
+    Order_T -> Class_T
+    Class_T -> Kingdom_Y
+
+  }
+"), height=700)
+```
+
+To sum up the flowchart above, for each species, we first attempt to count the number of records under the given term and unit. If the records are insufficient, we then "roll-up" and attempt to find the record count for the genus associated with the species. This process continues until we obtain a sufficient number of records (in this case 10) to calculate the median.
+
+Using the following process, we are able to convert all the terms to their respective standardized units.
+```{r}
+pre_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+
+<<pp-term-unit-final>>
+
+post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+
+cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
 
 ## Exploration
 
