@@ -218,7 +218,7 @@ grViz(paste0("
     { rank = same; Family_T, Family_Y }
     Order_T [label = 'Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?']
     { rank = same; Order_T, Order_Y }
-    Class_T [label = 'Does c (the Class of o)\nhave >=10 records\nfor the term t and unit u?']
+    Class_T [label = 'Does c (the Class of o)\nhave any record\nfor the term t and unit u?']
     { rank = same; Class_T, Class_Y }
 
     # Yes edges

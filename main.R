@@ -211,9 +211,11 @@ get_median_dictionary <- function(data) {
       left_join(linkname, by=c("Grouping"="Taxon")) %>%
       left_join(reference, by=c("Link"="Grouping", "Term"="Term","Unit"="Unit")) %>%
       mutate(
-        Median = ifelse(Records < 10 & !is.na(ProposedRecord),
+        Median = ifelse((granular == 'Kingdom' & is.na(Median)) | 
+                          (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
                         ProposedMedian, Median),
-        Records = ifelse(Records < 10 & !is.na(ProposedRecord),
+        Records = ifelse((granular == 'Kingdom' & Records == 0) |
+                           (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
                          ProposedRecord, Records)
        
       ) %>%

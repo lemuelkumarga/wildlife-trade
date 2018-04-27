@@ -180,7 +180,7 @@ si &lt;- sessionInfo()
 base_pkg_str &lt;- paste0(&quot;Base Packages: &quot;,paste(si[[&quot;basePkgs&quot;]], collapse=&quot;, &quot;))
 attached_pkg_str &lt;- paste0(&quot;Attached Packages: &quot;,paste(names(si[[&quot;otherPkgs&quot;]]), collapse=&quot;, &quot;))
 cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
-<pre><code>## Base Packages: stats, graphics, grDevices, utils, datasets, base
+<pre><code>## Base Packages: stats, graphics, grDevices, utils, datasets, methods, base
 ## Attached Packages: DiagrammeR, tidyr, pander, ggplot2, dplyr, knitr</code></pre>
 </section>
 <section id="about-the-data" class="level2">
@@ -636,7 +636,7 @@ grViz(paste0(&quot;
     { rank = same; Family_T, Family_Y }
     Order_T [label = &#39;Does o (the Order of f)\nhave &gt;=10 records\nfor the term t and unit u?&#39;]
     { rank = same; Order_T, Order_Y }
-    Class_T [label = &#39;Does c (the Class of o)\nhave &gt;=10 records\nfor the term t and unit u?&#39;]
+    Class_T [label = &#39;Does c (the Class of o)\nhave any record\nfor the term t and unit u?&#39;]
     { rank = same; Class_T, Class_Y }
 
     # Yes edges
@@ -658,8 +658,8 @@ grViz(paste0(&quot;
 
   }
 &quot;), height=700)</code></pre>
-<div id="htmlwidget-fd8546cf31de60949124" style="width:672px;height:700px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-fd8546cf31de60949124">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-4a412b69511dbfe233ab" style="width:672px;height:700px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4a412b69511dbfe233ab">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p>To sum up the flowchart above, for each species, we first attempt to count the number of records under the given term and unit. If the records are insufficient, we then “roll-up” and attempt to find the record count for the genus associated with the species. This process continues until we obtain a sufficient number of records (in this case 10) to calculate the median.</p>
 <p>Using the following process, we are able to convert all the terms to their respective standardized units.</p>
 <pre class="r"><code>pre_clean &lt;- nrow(dataset %&gt;% group_by(Term, ConvertedUnit) %&gt;% summarise())
@@ -714,9 +714,11 @@ get_median_dictionary &lt;- function(data) {
       left_join(linkname, by=c(&quot;Grouping&quot;=&quot;Taxon&quot;)) %&gt;%
       left_join(reference, by=c(&quot;Link&quot;=&quot;Grouping&quot;, &quot;Term&quot;=&quot;Term&quot;,&quot;Unit&quot;=&quot;Unit&quot;)) %&gt;%
       mutate(
-        Median = ifelse(Records &lt; 10 &amp; !is.na(ProposedRecord),
+        Median = ifelse((granular == &#39;Kingdom&#39; &amp; is.na(Median)) | 
+                          (granular != &#39;Kingdom&#39; &amp; Records &lt; 10 &amp; !is.na(ProposedRecord)),
                         ProposedMedian, Median),
-        Records = ifelse(Records &lt; 10 &amp; !is.na(ProposedRecord),
+        Records = ifelse((granular == &#39;Kingdom&#39; &amp; Records == 0) |
+                           (granular != &#39;Kingdom&#39; &amp; Records &lt; 10 &amp; !is.na(ProposedRecord)),
                          ProposedRecord, Records)
        
       ) %&gt;%
