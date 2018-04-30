@@ -38,7 +38,7 @@ cat(paste0(base_pkg_str,"\n",attached_pkg_str))
 
 ## About the Data
 
-We will be using wildlife trade data from <a href="https://www.cites.org/" target="_blank">CITES</a> for the period of 2001 to 2015, with the following caveats:
+We will be using wildlife trade data from CITES for the period of 2001 to 2015, with the following caveats:
 
 * 2016 and 2017 were excluded due to data lag in the year of analysis (2018). (See <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">Section 1.2.2 of the guide</a> for more details.)
 * Analysis will be restricted to trades whose sources originated from the wild.
@@ -53,7 +53,7 @@ pander(cols_summary, caption='Wildlife Trade Data - For more info, please visit 
 From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summary, we know that:
 
 1. Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular term. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details.)
-2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">the IUCN Red List</a>.
+2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on the IUCN Red List.
 3. Terms are <span class="hl">heterogenous</span>. For example, some quantities correspond to bodies, while others correspond to feathers.
 4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank unit), or in terms of weight/volume/qualitative units.
 
@@ -69,26 +69,25 @@ In the data, taxonomies with blank <span class="hl">Classes</span> are plants. F
 
 ```{r}
 pre_clean <- nrow(dataset)
+post_clean_str <- function () {
+  post_clean <- nrow(dataset)
+  cat(sprintf("%i rows removed (%i%% of total)",pre_clean - post_clean,floor((pre_clean - post_clean)/pre_clean * 100)))  
+}
 
 <<pp-restrict-animals>>
 
-post_clean <- nrow(dataset)
-  
-cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 #### Endangered Only
 
-Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">the IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
+Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
 By integrating the IUCN data, we can subsequently filter non-endangered species out of the CITES dataset.
 ```{r}
-
 <<pp-restrict-endanger>>
 
-post_clean <- nrow(dataset)
-
-cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 ### Standardizing the Terms
@@ -113,12 +112,17 @@ The first thing to note is that not all of the <span class="hl">units</span> are
 
 ```{r}
 pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+post_clean_str <- function () {
+  post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+  cat(sprintf("%i term-unit pair%s remaining (%i%% of total removed)",
+              post_clean,
+              ifelse(post_clean == 1,"","s"),
+              floor((pre_clean - post_clean)/pre_clean * 100)))
+}
 
 <<pp-to-si>>
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 #### One Term, One Unit
@@ -236,9 +240,7 @@ Using the following process, we can now convert all the terms to their respectiv
 ```{r}
 <<pp-term-unit-final>>
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 #### Well-Defined Terms
@@ -264,9 +266,7 @@ To convert a well-defined term, we simply need to divide the quantity by the num
 ```{r}
 <<pp-term-well-defined-convert>>
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 #### Ambiguous Terms
@@ -290,9 +290,7 @@ With this final step, we have reduced over 200 distinct term-unit pairs into a s
 ```{r}
 <<pp-term-ambiguous-convert>>
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pair remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
 ## Exploration

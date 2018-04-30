@@ -105,9 +105,8 @@ cat(paste0(base_pkg_str,"\n",attached_pkg_str))
 
 ## About the Data
 
-We will be using wildlife trade data from
-<a href="https://www.cites.org/" target="_blank">CITES</a> for the
-period of 2001 to 2015, with the following caveats:
+We will be using wildlife trade data from CITES for the period of 2001
+to 2015, with the following caveats:
 
   - 2016 and 2017 were excluded due to data lag in the year of analysis
     (2018). (See
@@ -173,9 +172,7 @@ and the above summary, we know that:
 2.  Not all animals in the data are endangered. For example, the
     <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed
     eagle (Haliaeetus albicilla)</a> is specified as
-    <span class="hl">Least Concern</span> on
-    <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">the
-    IUCN Red List</a>.
+    <span class="hl">Least Concern</span> on the IUCN Red List.
 3.  Terms are <span class="hl">heterogenous</span>. For example, some
     quantities correspond to bodies, while others correspond to
     feathers.
@@ -199,24 +196,25 @@ be excluded from the dataset.
 
 ``` r
 pre_clean <- nrow(dataset)
+post_clean_str <- function () {
+  post_clean <- nrow(dataset)
+  cat(sprintf("%i rows removed (%i%% of total)",pre_clean - post_clean,floor((pre_clean - post_clean)/pre_clean * 100)))  
+}
 
 dataset <- dataset %>%
   filter(Class != "")
 
-post_clean <- nrow(dataset)
-  
-cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
-    ## 31068 rows removed (7% of total)
+    ## 31068 rows removed (6% of total)
 
 #### Endangered Only
 
-Endangered status of species are located in
-<a href="http://www.iucnredlist.org/" target="_blank">the IUCN Red List
-database</a>. Due to licensing restrictions, the data could not be
-uploaded for public view. However, one is free to create an account and
-download the csv from
+Endangered status of species are located in the IUCN Red List database.
+Due to licensing restrictions, the data could not be uploaded for public
+view. However, one is free to create an account and download the csv
+from
 <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
 By integrating the IUCN data, we can subsequently filter non-endangered
@@ -268,9 +266,7 @@ iucn_list <- rbind(species_iucn_list,
 dataset <- dataset %>%
   inner_join(iucn_list, by="Taxon")
 
-post_clean <- nrow(dataset)
-
-cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
     ## 349257 rows removed (76% of total)
@@ -314,6 +310,13 @@ litres</span>). This is relatively straightforward to fix:
 
 ``` r
 pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+post_clean_str <- function () {
+  post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+  cat(sprintf("%i term-unit pair%s remaining (%i%% of total removed)",
+              post_clean,
+              ifelse(post_clean == 1,"","s"),
+              floor((pre_clean - post_clean)/pre_clean * 100)))
+}
 
 # A dictionary for converting scientific units to SI
 # First item correspond to the SI unit
@@ -338,12 +341,10 @@ for (i in which(dataset$Unit %in% names(units_to_si))) {
   dataset[i,"Qty"] <- as.double(units_to_si[[unit]][2]) * qty
 }
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
-    ## 161 term-unit pairs remaining (28% of total removed)
+    ## 161 term-unit pairs remaining (27% of total removed)
 
 #### One Term, One Unit
 
@@ -499,11 +500,11 @@ grViz(paste0("
 
 <!--html_preserve-->
 
-<div id="htmlwidget-c9fd31b92290edc527cc" class="grViz html-widget" style="width:672px;height:700px;">
+<div id="htmlwidget-439b05d926e864897148" class="grViz html-widget" style="width:672px;height:700px;">
 
 </div>
 
-<script type="application/json" data-for="htmlwidget-c9fd31b92290edc527cc">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-439b05d926e864897148">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 <!--/html_preserve-->
 
@@ -648,9 +649,7 @@ convertViaMedian <- function(data, target) {
 
 dataset <- convertViaMedian(dataset, target_unit %>% select(Term, Unit))
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
     ## 71 term-unit pairs remaining (68% of total removed)
@@ -693,12 +692,10 @@ dataset <- dataset %>%
          Qty = ifelse(isWellDefined, 1. / perAnimal, 1.) * Qty) %>%
   select(-perAnimal, -isWellDefined)
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
-    ## 61 term-unit pairs remaining (73% of total removed)
+    ## 61 term-unit pairs remaining (72% of total removed)
 
 #### Ambiguous Terms
 
@@ -734,12 +731,10 @@ into a single animal unit\!
 target <- data_frame(Term = "animal")
 dataset <- convertViaMedian(dataset, target)
 
-post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
-cat(sprintf("%i term-unit pair remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
+post_clean_str()
 ```
 
-    ## 1 term-unit pair remaining (100% of total removed)
+    ## 1 term-unit pair remaining (99% of total removed)
 
 ## Exploration
 

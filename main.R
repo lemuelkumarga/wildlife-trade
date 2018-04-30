@@ -304,5 +304,3 @@ target <- data_frame(Term = "animal")
 dataset <- convertViaMedian(dataset, target)
 
 ## ---- end-of-pp-term-ambiguous-convert
-
-summ <- dataset %>% group_by(Taxon, Class) %>% summarise(q= sum(Qty), c=sum(ifelse(Converted,Qty,0))/sum(Qty))

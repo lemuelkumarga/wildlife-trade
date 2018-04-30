@@ -185,7 +185,7 @@ cat(paste0(base_pkg_str,&quot;\n&quot;,attached_pkg_str))</code></pre>
 </section>
 <section id="about-the-data" class="level2">
 <h2>About the Data</h2>
-<p>We will be using wildlife trade data from <a href="https://www.cites.org/" target="_blank">CITES</a> for the period of 2001 to 2015, with the following caveats:</p>
+<p>We will be using wildlife trade data from CITES for the period of 2001 to 2015, with the following caveats:</p>
 <ul>
 <li>2016 and 2017 were excluded due to data lag in the year of analysis (2018). (See <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">Section 1.2.2 of the guide</a> for more details.)</li>
 <li>Analysis will be restricted to trades whose sources originated from the wild.</li>
@@ -327,7 +327,7 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 <p>From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summary, we know that:</p>
 <ol type="1">
 <li>Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular term. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details.)</li>
-<li>Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">the IUCN Red List</a>.</li>
+<li>Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on the IUCN Red List.</li>
 <li>Terms are <span class="hl">heterogenous</span>. For example, some quantities correspond to bodies, while others correspond to feathers.</li>
 <li>Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank unit), or in terms of weight/volume/qualitative units.</li>
 </ol>
@@ -341,18 +341,20 @@ pander(cols_summary, caption=&#39;Wildlife Trade Data - For more info, please vi
 <h4>Animals Only</h4>
 <p>In the data, taxonomies with blank <span class="hl">Classes</span> are plants. For the purposes of this analysis, these records (or rows) will be excluded from the dataset.</p>
 <pre class="r"><code>pre_clean &lt;- nrow(dataset)
+post_clean_str &lt;- function () {
+  post_clean &lt;- nrow(dataset)
+  cat(sprintf(&quot;%i rows removed (%i%% of total)&quot;,pre_clean - post_clean,floor((pre_clean - post_clean)/pre_clean * 100)))  
+}
 
 dataset &lt;- dataset %&gt;%
   filter(Class != &quot;&quot;)
 
-post_clean &lt;- nrow(dataset)
-  
-cat(sprintf(&quot;%i rows removed (%.0f%% of total)&quot;,pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
-<pre><code>## 31068 rows removed (7% of total)</code></pre>
+post_clean_str()</code></pre>
+<pre><code>## 31068 rows removed (6% of total)</code></pre>
 </section>
 <section id="endangered-only" class="level4">
 <h4>Endangered Only</h4>
-<p>Endangered status of species are located in <a href="http://www.iucnredlist.org/" target="_blank">the IUCN Red List database</a>. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.</p>
+<p>Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.</p>
 <p>By integrating the IUCN data, we can subsequently filter non-endangered species out of the CITES dataset.</p>
 <pre class="r"><code># Create an account with IUCN and download the csv from http://www.iucnredlist.org/search/saved?id=90695
 # Move the csv into the data folder and rename it as iucn_list.csv
@@ -398,9 +400,7 @@ iucn_list &lt;- rbind(species_iucn_list,
 dataset &lt;- dataset %&gt;%
   inner_join(iucn_list, by=&quot;Taxon&quot;)
 
-post_clean &lt;- nrow(dataset)
-
-cat(sprintf(&quot;%i rows removed (%.0f%% of total)&quot;,pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
+post_clean_str()</code></pre>
 <pre><code>## 349257 rows removed (76% of total)</code></pre>
 </section>
 </section>
@@ -432,6 +432,13 @@ cat(output_str)</code></pre>
 <h4>Scientific Units</h4>
 <p>The first thing to note is that not all of the <span class="hl">units</span> are SI (e.g. <span class="hl">cm, g and litres</span>). This is relatively straightforward to fix:</p>
 <pre class="r"><code>pre_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
+post_clean_str &lt;- function () {
+  post_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
+  cat(sprintf(&quot;%i term-unit pair%s remaining (%i%% of total removed)&quot;,
+              post_clean,
+              ifelse(post_clean == 1,&quot;&quot;,&quot;s&quot;),
+              floor((pre_clean - post_clean)/pre_clean * 100)))
+}
 
 # A dictionary for converting scientific units to SI
 # First item correspond to the SI unit
@@ -456,10 +463,8 @@ for (i in which(dataset$Unit %in% names(units_to_si))) {
   dataset[i,&quot;Qty&quot;] &lt;- as.double(units_to_si[[unit]][2]) * qty
 }
 
-post_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
-
-cat(sprintf(&quot;%i term-unit pairs remaining (%.0f%% of total removed)&quot;,post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
-<pre><code>## 161 term-unit pairs remaining (28% of total removed)</code></pre>
+post_clean_str()</code></pre>
+<pre><code>## 161 term-unit pairs remaining (27% of total removed)</code></pre>
 </section>
 <section id="one-term-one-unit" class="level4">
 <h4>One Term, One Unit</h4>
@@ -637,8 +642,8 @@ grViz(paste0(&quot;
 
   }
 &quot;), height=700)</code></pre>
-<div id="htmlwidget-6fcd708307da3bf105e1" style="width:672px;height:700px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-6fcd708307da3bf105e1">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-3066246639e4cac7dd98" style="width:672px;height:700px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3066246639e4cac7dd98">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p>To sum up the flowchart above, we will first count the number of records under the given species, term and unit. If the records are insufficient, we then “roll-up” and attempt to find the number of records for the genus associated with the species. This process continues until we have sufficient data points to calculate the median.</p>
 </section>
 <section id="managing-outliers" class="level5">
@@ -768,9 +773,7 @@ convertViaMedian &lt;- function(data, target) {
 
 dataset &lt;- convertViaMedian(dataset, target_unit %&gt;% select(Term, Unit))
 
-post_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
-
-cat(sprintf(&quot;%i term-unit pairs remaining (%.0f%% of total removed)&quot;,post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
+post_clean_str()</code></pre>
 <pre><code>## 71 term-unit pairs remaining (68% of total removed)</code></pre>
 </section>
 </section>
@@ -798,10 +801,8 @@ cat(output_str)</code></pre>
          Qty = ifelse(isWellDefined, 1. / perAnimal, 1.) * Qty) %&gt;%
   select(-perAnimal, -isWellDefined)
 
-post_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
-
-cat(sprintf(&quot;%i term-unit pairs remaining (%.0f%% of total removed)&quot;,post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
-<pre><code>## 61 term-unit pairs remaining (73% of total removed)</code></pre>
+post_clean_str()</code></pre>
+<pre><code>## 61 term-unit pairs remaining (72% of total removed)</code></pre>
 </section>
 <section id="ambiguous-terms" class="level4">
 <h4>Ambiguous Terms</h4>
@@ -814,10 +815,8 @@ cat(sprintf(&quot;%i term-unit pairs remaining (%.0f%% of total removed)&quot;,p
 <pre class="r"><code>target &lt;- data_frame(Term = &quot;animal&quot;)
 dataset &lt;- convertViaMedian(dataset, target)
 
-post_clean &lt;- nrow(dataset %&gt;% group_by(Term, Unit) %&gt;% summarise())
-
-cat(sprintf(&quot;%i term-unit pair remaining (%.0f%% of total removed)&quot;,post_clean,(pre_clean - post_clean)/pre_clean * 100))</code></pre>
-<pre><code>## 1 term-unit pair remaining (100% of total removed)</code></pre>
+post_clean_str()</code></pre>
+<pre><code>## 1 term-unit pair remaining (99% of total removed)</code></pre>
 </section>
 </section>
 </section>
