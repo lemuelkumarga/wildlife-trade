@@ -112,7 +112,7 @@ period of 2001 to 2015, with the following caveats:
   - 2016 and 2017 were excluded due to data lag in the year of analysis
     (2018). (See
     <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">Section
-    1.2.2 of the guide</a> for more details).
+    1.2.2 of the guide</a> for more details.)
   - Analysis will be restricted to trades whose sources originated from
     the wild.
 
@@ -167,20 +167,20 @@ From the
 and the above summary, we know that:
 
 1.  Each row corresponds to the <span class="hl">total trade</span>
-    between two countries for a particular species at a particular unit.
+    between two countries for a particular species at a particular term.
     This is contrary to popular belief that each row corresponds to one
-    shipment. (See Section 3.1 for more details)
+    shipment. (See Section 3.1 for more details.)
 2.  Not all animals in the data are endangered. For example, the
     <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed
     eagle (Haliaeetus albicilla)</a> is specified as
     <span class="hl">Least Concern</span> on
-    <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">IUCN
-    Red List</a>.
-3.  Terms are <span class="hl">heterogenous</span>. For examples, some
+    <a href="http://www.iucnredlist.org/details/22695137/0" target="_blank">the
+    IUCN Red List</a>.
+3.  Terms are <span class="hl">heterogenous</span>. For example, some
     quantities correspond to bodies, while others correspond to
     feathers.
 4.  Units are also <span class="hl">varied</span>. Quantities can be
-    quoted as distinct counts (i.e. blank Unit), or in terms of
+    quoted as distinct counts (i.e. blank unit), or in terms of
     weight/volume/qualitative units.
 
 As can be seen, some pre-processing would be required before our
@@ -189,13 +189,13 @@ to allow comparison across species.
 
 ## Pre-Processing
 
-### Rescoping the Species
+### Restricting the Species
 
 #### Animals Only
 
-In the data, taxonomies with blank <span class="hl">Class</span>
-correspond to plants. For the purposes of this analysis, we will exclude
-non-animals from the dataset.
+In the data, taxonomies with blank <span class="hl">Classes</span> are
+plants. For the purposes of this analysis, these records (or rows) will
+be excluded from the dataset.
 
 ``` r
 pre_clean <- nrow(dataset)
@@ -213,18 +213,17 @@ cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clea
 #### Endangered Only
 
 Endangered status of species are located in
-<a href="http://www.iucnredlist.org/" target="_blank">IUCN Red List
+<a href="http://www.iucnredlist.org/" target="_blank">the IUCN Red List
 database</a>. Due to licensing restrictions, the data could not be
 uploaded for public view. However, one is free to create an account and
 download the csv from
 <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
-Using the IUCN data, we can subsequently filter non-endangered species
-out of the CITES dataset.
+By integrating the IUCN data, we can subsequently filter non-endangered
+species out of the CITES
+dataset.
 
 ``` r
-pre_clean <- nrow(dataset)
-
 # Create an account with IUCN and download the csv from http://www.iucnredlist.org/search/saved?id=90695
 # Move the csv into the data folder and rename it as iucn_list.csv
 
@@ -274,15 +273,13 @@ post_clean <- nrow(dataset)
 cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
-    ## 318189 rows removed (75% of total)
+    ## 349257 rows removed (76% of total)
 
 ### Standardizing the Terms
 
 After restricting the dataset to only endangered species, we need to
-standardize all the terms into universal <span class="hl">animal
-units</span>.
-
-Listed below are the terms to be standardized:
+standardize all the terms below into universal <span class="hl">animal
+units</span>:
 
 ``` r
 # Take the majority between input and output
@@ -311,9 +308,9 @@ cat(output_str)
 
 #### Scientific Units
 
-The first thing we notice from the above text is that not all of the
-scientific units are SI (examples include <span class="hl">cm, g and
-litres</span>). Let us therefore first standardize all units to SI:
+The first thing to note is that not all of the
+<span class="hl">units</span> are SI (e.g. <span class="hl">cm, g and
+litres</span>). This is relatively straightforward to fix:
 
 ``` r
 pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
@@ -343,16 +340,16 @@ for (i in which(dataset$Unit %in% names(units_to_si))) {
 
 post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
-cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
-    ## 62 term-unit pairs removed (28% of total)
+    ## 161 term-unit pairs remaining (28% of total removed)
 
-#### 1 Term, 1 Unit
+#### One Term, One Unit
 
-Another problem to rectify is that 1 term can be recorded in different
-units. Consider the term <span class="hl">bodies</span>, which were
-recorded in counts, kilograms and even metres:
+Another issue is that one term can be recorded in different units.
+Consider the term <span class="hl">bodies</span>, which were recorded in
+counts, kilograms and even metres:
 
 ``` r
 term_unit_counts <- dataset %>%
@@ -372,15 +369,15 @@ pander(output_tbl)
 | bodies | kg   |   360   |  334071  |
 | bodies | m    |    1    |   0.1    |
 
-Ideally, we would be able to convert kilograms of bodies into actual
-count by identifying each species’ weight. However, such methods are
-time-intensive, and fall outside the scope of this analysis. Therefore,
-we need to propose a conversion rule that is more manageable and yet
-still relatively accurate.
+Ideally, we would convert kilograms of bodies into actual count by
+identifying species’ weight. However, such methods are time-intensive,
+and fall outside the scope of this analysis. Therefore, we need to
+propose a conversion rule that is more manageable and yet still
+relatively accurate.
 
-In order to ensure that the unit is standardized, we will first choose
-the target unit for each term. This can be done by identifying the unit
-whose records (i.e. rows) are highest for each term:
+To standardize units for each term, we will first choose the target unit
+to convert to. This can be done by identifying the unit with the highest
+number of records.
 
 ``` r
 target_unit <- term_unit_counts %>%
@@ -392,31 +389,18 @@ target_unit <- term_unit_counts %>%
     Unit = max(ifelse(r == 1, Unit, NA), na.rm=TRUE),
     Records = max(ifelse(r == 1,Records,NA), na.rm=TRUE)
   )
-
-output_str <- "Terms [with their Target Unit]:\n"
-terms_w_target_unit <- target_unit %>%
-                       mutate(outputString = paste0(Term, " [", ifelse(Unit == "","count",Unit), "]"))
-
-output_str <- output_str %>%
-              paste0(paste0(terms_w_target_unit$outputString,collapse=", "))
-  
-cat(output_str)
 ```
-
-    ## Terms [with their Target Unit]:
-    ## baleen [count], bodies [count], bone carvings [count], bone pieces [count], bones [count], calipee [count], carapaces [count], carvings [count], caviar [kg], claws [count], cloth [count], coral sand [kg], cosmetics [kg], derivatives [count], dried plants [count], ears [count], eggs [kg], eggs (live) [count], extract [kg], feathers [count], feet [count], fingerlings [kg], fins [kg], fur products (large) [count], gall [count], gall bladders [count], garments [count], genitalia [count], hair [count], hair products [count], horn carvings [count], horn pieces [count], horns [count], ivory carvings [count], ivory pieces [count], ivory scraps [count], jewellery [count], jewellery - ivory  [count], leather items [count], leather products (large) [count], leather products (small) [count], live [count], meat [kg], medicine [kg], musk [kg], oil [count], piano keys [count], plates [count], powder [kg], raw corals [count], rug [count], scales [count], sets of piano keys [count], shells [count], shoes [count], sides [count], skeletons [count], skin pieces [count], skin scraps [count], skins [count], skulls [count], specimens [count], swim bladders [kg], tails [count], teeth [count], trophies [count], trunk [count], tusks [count], unspecified [count], venom [kg], wax [kg]
 
 The tricky part comes in when we attempt to convert a quantity from a
 non-target unit to the target unit. During this step, we will assume
-that, <span class="hl">for each species, the median quantity traded
-corresponds to the same number of live animals regardless of the
-terms/units they were in</span>. In other words, if the median quantity
-of elephant bodies traded is 2, and the median quantity of elephant
-bodies traded in kgs is 14,000, then the 2 elephant bodies are
-equivalent to 14,000 kgs.
+that, <span class="hl">for each species, the median quantity traded in
+animal units is constant regardless of the terms/units they were
+specified in</span>. In other words, if the median quantity of elephant
+bodies traded is 2, and the median quantity of elephant bodies traded in
+kgs is 14,000, then the 2 elephant bodies are equivalent to 14,000 kgs.
 
-With this assumption, we can convert a quantity from a non-target unit
-to a target unit using the following equation:
+This assumption allows us to convert quantities to the target unit using
+the following equation:
 
 \[ q_{t} = \frac{q_{nt}}{m_{nt}} \times m_{t} \]
 
@@ -426,16 +410,11 @@ unit), <br> \(m_{nt}\) corresponds to the median quantity traded (in
 non-target unit), and <br> \(m_{t}\) corresponds to the median quantity
 traded (in target unit).
 
-With the above formalization, the conversion challenge gets reduced to
-finding the median quantity for a particular species, term and unit
-triplet.
-
 ##### The Roll-Up Median Approach
 
-One potential challenge is that we do not have many data points for each
-species, term and unit triplet. To illustrate, consider the African bush
-elephant (Loxodonta africana) trades that were recorded in non-target
-units:
+One potential challenge with the above approach is the lack of data
+points for each species, term and unit triplet. To illustrate, consider
+the African bush elephant (Loxodonta africana) trades below:
 
 ``` r
 output_tbl <- dataset %>% 
@@ -456,11 +435,10 @@ pander(head(output_tbl,5))
 | Loxodonta africana | carvings    | m3   |    1    |
 | Loxodonta africana | derivatives | kg   |    4    |
 
-We see that there is only a <span class="hl">single</span> data point
-for Loxodonta africana trades whose term and unit are “bodies” and “kg”.
-Such minute sample size is not sufficient to calculate the median
-quantity. Therefore, to obtain larger sample sizes, a roll-up approach
-is
+There is only a <span class="hl">single</span> data point whose term and
+unit are “bodies” and “kg”\! Such minute sample size is not sufficient
+to calculate the median. To obtain larger sample sizes, a roll-up
+approach is
 required:
 
 ``` r
@@ -521,20 +499,19 @@ grViz(paste0("
 
 <!--html_preserve-->
 
-<div id="htmlwidget-52212f2944c2394d041b" class="grViz html-widget" style="width:672px;height:700px;">
+<div id="htmlwidget-c9fd31b92290edc527cc" class="grViz html-widget" style="width:672px;height:700px;">
 
 </div>
 
-<script type="application/json" data-for="htmlwidget-52212f2944c2394d041b">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-c9fd31b92290edc527cc">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 <!--/html_preserve-->
 
-To sum up the flowchart above, for each species, we first attempt to
-count the number of records under the given term and unit. If the
-records are insufficient, we then “roll-up” and attempt to find the
-number of records for the genus associated with the species. This
-process continues until we obtain a sufficient number of records (in
-this case 10) to calculate the median.
+To sum up the flowchart above, we will first count the number of records
+under the given species, term and unit. If the records are insufficient,
+we then “roll-up” and attempt to find the number of records for the
+genus associated with the species. This process continues until we have
+sufficient data points to calculate the median.
 
 ##### Managing Outliers
 
@@ -548,8 +525,6 @@ Using the following process, we can now convert all the terms to their
 respective standardized units.
 
 ``` r
-pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
 # Convert the term and units of the dataset to their desired targets
 # @input data: the dataset
 # @input target: the target term-unit pairs. If we are converting
@@ -675,40 +650,20 @@ dataset <- convertViaMedian(dataset, target_unit %>% select(Term, Unit))
 
 post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
-cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
-    ## 90 term-unit pairs removed (56% of total)
+    ## 71 term-unit pairs remaining (68% of total removed)
 
 #### Well-Defined Terms
 
-Having standardized the units, we will now attempt to
-<span class="hl">convert each term to the universal animal unit</span>.
-Listed below are each of the terms, along with their number of records:
+Let us now <span class="hl">convert each term to the universal animal
+unit</span>. Through observation, the terms can be differentiated into
+well-defined or ambiguous. A term is well-defined if it is consistent
+numerically across all animals and records. One good example would be
+tusk, since 2 of them are always the equivalent of 1 animal.
 
-``` r
-output_str <- "Terms [with their Records]:\n"
-terms_w_records <- dataset %>%
-                   group_by(Term, Unit) %>%
-                   summarise(Records = n()) %>%
-                   mutate(outputString = paste0(Term, ifelse(Unit == "","",paste0("/",Unit))," [", Records, "]")) %>%
-                   arrange(desc(Records))
-
-output_str <- output_str %>%
-              paste0(paste0(terms_w_records$outputString,collapse=", "))
-  
-cat(output_str)
-```
-
-    ## Terms [with their Records]:
-    ## live [40062], trophies [9633], raw corals [9445], specimens [7971], eggs/kg [4858], leather products (small) [4365], skins [4047], tusks [3105], skulls [2758], carvings [2653], teeth [2077], bodies [1965], ivory carvings [1820], skin pieces [1575], feet [1275], derivatives [1002], leather products (large) [974], bones [837], tails [805], ears [680], feathers [562], hair [535], caviar/kg [478], garments [462], claws [372], meat/kg [360], shells [354], shoes [311], ivory pieces [309], carapaces [253], musk/kg [177], extract/kg [172], unspecified [139], horns [128], skeletons [109], bone carvings [104], hair products [99], medicine/kg [90], bone pieces [88], fins/kg [68], plates [54], baleen [50], genitalia [47], wax/kg [40], horn carvings [34], eggs (live) [28], scales [27], powder/kg [17], fingerlings/kg [13], horn pieces [12], gall [11], sides [9], leather items [8], oil [7], swim bladders/kg [7], rug [6], cosmetics/kg [5], trunk [5], coral sand/kg [4], jewellery [4], ivory scraps [3], jewellery - ivory  [3], cloth [2], gall bladders [2], calipee [1], dried plants [1], fur products (large) [1], piano keys [1], sets of piano keys [1], skin scraps [1], venom/kg [1]
-
-Through observation, we notice that the terms can be differentiated into
-well-defined or ambiguous. Well-defined terms are those that have clear
-associations with animals. A good example would be tusk, since 2 of them
-is always the equivalent of 1 animal.
-
-Listed below are the terms which we will describe as
+Listed below are the terms we describe as
 well-defined:
 
 ``` r
@@ -726,13 +681,10 @@ cat(output_str)
     ## Well-Defined Terms [with Number Per Live Animal]:
     ## live [1], trophies [1], raw corals [1], tusks [2], skulls [1], bodies [1], tails [1], ears [2], genitalia [1], horns [1], trunk [1]
 
-Well-defined terms account for 64% of the total number of records. To
-convert a well-defined term, we simply need to divide the quantity by
+To convert a well-defined term, we simply need to divide the quantity by
 the number of terms per animal:
 
 ``` r
-pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
 dataset <- dataset %>%
   left_join(well_defined_terms, by="Term") %>%
   mutate(isWellDefined = !is.na(perAnimal),
@@ -743,25 +695,24 @@ dataset <- dataset %>%
 
 post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
-cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+cat(sprintf("%i term-unit pairs remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
-    ## 10 term-unit pairs removed (14% of total)
+    ## 61 term-unit pairs remaining (73% of total removed)
 
 #### Ambiguous Terms
 
 The final piece of the jigsaw is to convert ambiguous terms. These
 terms, by nature of their names, are somewhat vague, and there exists no
 clear association between them and the number of animals. For example,
-how many ivory pieces make up an elephant? Depending on the size of the
-pieces, these numbers would differ record by record.
+how many ivory pieces make up an elephant? Depending on the sizes of the
+pieces, the numbers would differ record by record.
 
 To simplify the conversion process, we will revisit our previous
 assumption when standardizing units of a term. Assuming that
-<span class="hl">across each species, the median quantity traded
-corresponds to the same number of live animals regardless of the
-terms</span>, we can subsequently convert ambiguous terms using the
-following equation:
+<span class="hl">across each species, the median quantity traded in live
+animal units is the same across any term</span>, ambiguous terms can be
+converted using the following equation:
 
 \[ q_{animal} = \frac{q_{at}}{m_{at}} \times m_{animal} \]
 
@@ -776,25 +727,19 @@ As before, medians are obtained through the
 outliers are managed by <a href="#managing-outliers">flooring and
 capping at the 5th and 95th percentile</a> respectively.
 
-With this step, we have finally standardized over 200 distinct term-unit
-pairs into a single animal unit\!
+With this final step, we have reduced over 200 distinct term-unit pairs
+into a single animal unit\!
 
 ``` r
-pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-
 target <- data_frame(Term = "animal")
 dataset <- convertViaMedian(dataset, target)
 
 post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
-output_str <- sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100) %>%
-              paste0("\n","1 Unit Remaining: ",paste0(unique(dataset$Term), collapse=","))
-
-cat(output_str)
+cat(sprintf("%i term-unit pair remaining (%.0f%% of total removed)",post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
-    ## 60 term-unit pairs removed (98% of total)
-    ## 1 Unit Remaining: animal
+    ## 1 term-unit pair remaining (100% of total removed)
 
 ## Exploration
 
