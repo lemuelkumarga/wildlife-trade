@@ -254,17 +254,24 @@ convertViaMedian <- function(data, target) {
               by = c("Taxon"="Grouping",
                      "Term"="Term",
                      "Unit"="Unit")) %>%
-    left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
-              by = c("Taxon"="Grouping",
-                     "TargetTerm"="Term",
-                     "TargetUnit"="Unit")) %>%
-    mutate(
-      Term = TargetTerm,
-      Unit = TargetUnit,
-      Qty = Qty / NonTargetMedian * TargetMedian,
-      Converted = NonTargetMedian != TargetMedian | Converted
-    ) %>%
-    select(-TargetTerm, -TargetUnit, -NonTargetMedian, -TargetMedian)
+    mutate(ScaledQty = Qty / NonTargetMedian)
+  
+  outlier_limits <- quantile(data$ScaledQty, c(0.05,0.95))
+  
+  data <- data %>%
+          mutate(ScaledQty = ifelse(ScaledQty > outlier_limits[[2]],outlier_limits[[2]],
+                               ifelse(ScaledQty < outlier_limits[[1]], outlier_limits[[1]],ScaledQty))) %>%
+          left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
+                    by = c("Taxon"="Grouping",
+                           "TargetTerm"="Term",
+                           "TargetUnit"="Unit")) %>%
+          mutate(
+            Term = TargetTerm,
+            Unit = TargetUnit,
+            Qty = ifelse(NonTargetMedian == TargetMedian, Qty, ScaledQty * TargetMedian),
+            Converted = NonTargetMedian != TargetMedian | Converted
+          ) %>%
+          select(-ScaledQty, -TargetTerm, -TargetUnit, -NonTargetMedian, -TargetMedian)
   
   return(data)
 }
@@ -297,3 +304,5 @@ target <- data_frame(Term = "animal")
 dataset <- convertViaMedian(dataset, target)
 
 ## ---- end-of-pp-term-ambiguous-convert
+
+summ <- dataset %>% group_by(Taxon, Class) %>% summarise(q= sum(Qty), c=sum(ifelse(Converted,Qty,0))/sum(Qty))

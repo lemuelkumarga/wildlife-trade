@@ -94,9 +94,9 @@ cat(sprintf("%i rows removed (%.0f%% of total)",pre_clean - post_clean,(pre_clea
 
 ### Standardizing the Terms
 
-After restricting the dataset to only endangered species, we need to standardize all the terms into universal <span class="hl">trading units</span>. Ideally, 1 trading unit should represent 1 animal.
+After restricting the dataset to only endangered species, we need to standardize all the terms into universal <span class="hl">animal units</span>. 
 
-Thse are the terms left to be standardized:
+Listed below are the terms to be standardized:
 
 ```{r}
 <<pp-terms-overview>>
@@ -125,8 +125,7 @@ cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clea
 ```
 
 #### 1 Term, 1 Unit
-Another problem to rectify is that 1 term can be recorded in different units.
-Consider the term <span class="hl">bodies</span>, which were recorded in counts, kilograms and even metres:
+Another problem to rectify is that 1 term can be recorded in different units. Consider the term <span class="hl">bodies</span>, which were recorded in counts, kilograms and even metres:
 
 ```{r}
 <<pp-term-unit-summary>>
@@ -139,7 +138,7 @@ pander(output_tbl)
 
 Ideally, we would be able to convert kilograms of bodies into actual count by identifying each species' weight. However, such methods are time-intensive, and fall outside the scope of this analysis. Therefore, we need to propose a conversion rule that is more manageable and yet still relatively accurate.
 
-In order to ensure that the unit for each term is standardized, we will first choose the target unit for each term. This can be done by identifying the unit whose records (i.e. rows) are highest for each term:
+In order to ensure that the unit is standardized, we will first choose the target unit for each term. This can be done by identifying the unit whose records (i.e. rows) are highest for each term:
 
 ```{r}
 <<pp-term-unit-target>>
@@ -154,17 +153,17 @@ output_str <- output_str %>%
 cat(output_str)
 ```
 
-The tricky part comes in when we attempt to convert a quantity from a non-target unit to the target unit. During this step, we will assume that, <span class="hl">for each species, the median quantity of each term-unit pair corresponds to the same number of live animals</span>. In other words, if the median quantity of elephant bodies is 2, and the median quantity of elephant bodies in kgs is 14,000 kg, then the 2 elephant bodies are equivalent to 14,000 kgs.
+The tricky part comes in when we attempt to convert a quantity from a non-target unit to the target unit. During this step, we will assume that, <span class="hl">for each species, the median quantity traded corresponds to the same number of live animals regardless of the terms/units they were in</span>. In other words, if the median quantity of elephant bodies traded is 2, and the median quantity of elephant bodies traded in kgs is 14,000, then the 2 elephant bodies are equivalent to 14,000 kgs.
 
 With this assumption, we can convert a quantity from a non-target unit to a target unit using the following equation:
 
 \[ q_{t} = \frac{q_{nt}}{m_{nt}} \times m_{t} \]
 
 where <br>
-\(q_{t}\) corresponds to the quantity in target unit, <br>
-\(q_{nt}\) corresponds to the quantity in non-target unit, <br>
-\(m_{nt}\) corresponds to the median quantity of the non-target unit (per record), and <br>
-\(m_{t}\) corresponds to the median quantity of the target unit (per record).
+\(q_{t}\) corresponds to the quantity traded (in target unit), <br>
+\(q_{nt}\) corresponds to the quantity traded (in non-target unit), <br>
+\(m_{nt}\) corresponds to the median quantity traded (in non-target unit), and <br>
+\(m_{t}\) corresponds to the  median quantity traded (in target unit).
 
 With the above formalization, the conversion challenge gets reduced to finding the median quantity for a particular species, term and unit triplet. 
 
@@ -241,9 +240,13 @@ grViz(paste0("
 "), height=700)
 ```
 
-To sum up the flowchart above, for each species, we first attempt to count the number of records under the given term and unit. If the records are insufficient, we then "roll-up" and attempt to find the record count for the genus associated with the species. This process continues until we obtain a sufficient number of records (in this case 10) to calculate the median.
+To sum up the flowchart above, for each species, we first attempt to count the number of records under the given term and unit. If the records are insufficient, we then "roll-up" and attempt to find the number of records for the genus associated with the species. This process continues until we obtain a sufficient number of records (in this case 10) to calculate the median.
 
-Using the following process, we are able to convert all the terms to their respective standardized units.
+##### Managing Outliers
+
+Another potential challenge of converting around the median is that outliers may be extremely high, thereby skewing the aggregate results towards certain records. To remedy this, we will floor the scaled quantity (\( q_{nt} / m_{nt} \)) of each record to the 5th percentile and cap it to the 95th percentile.
+
+Using the following process, we can now convert all the terms to their respective standardized units.
 ```{r}
 pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
@@ -256,7 +259,7 @@ cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clea
 
 #### Well-Defined Terms
 
-Having standardized the units, we will now attempt to <span class="hl">convert each term to the equivalent number of live animals</span>. Listed below are each of the terms, along with their number of records:
+Having standardized the units, we will now attempt to <span class="hl">convert each term to the universal animal unit</span>. Listed below are each of the terms, along with their number of records:
 
 ```{r}
 output_str <- "Terms [with their Records]:\n"
@@ -272,9 +275,9 @@ output_str <- output_str %>%
 cat(output_str)
 ```
 
-Through observation, we notice that theterms can be differentiated into: well-defined or ambiguous. Well-defined terms are those that have clear associations with the number of animals. A good example of this would be tusk, since 2 of them is always the equivalent of 1 animal. 
+Through observation, we notice that the terms can be differentiated into well-defined or ambiguous. Well-defined terms are those that have clear associations with animals. A good example would be tusk, since 2 of them are always the equivalent of 1 animal. 
 
-Listed below are the terms which we will describe as well-defined:
+Listed below are the terms which we describe as well-defined:
 
 ```{r}
 <<pp-term-well-defined-overview>>
@@ -304,17 +307,19 @@ cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clea
 
 The final piece of the jigsaw is to convert ambiguous terms. These terms, by nature of their names, are somewhat vague, and there exists no clear association between them and the number of animals. For example, how many ivory pieces make up an elephant? Depending on the size of the pieces, these numbers would differ record by record.
 
-To simplify the conversion process, we will revisit our previous assumption when standardizing units of a term. Assuming that <span class="hl">across each species, the median quantity of each term corresponds to the same number of live animals</span>, we can subsequently convert ambiguous terms using the following equation:
+To simplify the conversion process, we will revisit our previous assumption when standardizing units of a term. Assuming that <span class="hl">across each species, the median quantity traded corresponds to the same number of live animals regardless of the terms</span>, we can subsequently convert ambiguous terms using the following equation:
 
 \[ q_{animal} = \frac{q_{at}}{m_{at}} \times m_{animal} \]
 
 where <br>
-\(q_{animal}\) corresponds to the quantity of animals, <br>
-\(q_{at}\) corresponds to the quantity of ambiguous terms, <br>
-\(m_{at}\) corresponds to the median quantity of the ambiguous terms (per record), and <br>
-\(m_{animal}\) corresponds to the median quantity of animals (per record).
+\(q_{animal}\) corresponds to the quantity of animals traded, <br>
+\(q_{at}\) corresponds to the quantity traded (in ambiguous terms), <br>
+\(m_{at}\) corresponds to the median quantity traded (in ambiguous terms), and <br>
+\(m_{animal}\) corresponds to the median quantity of animals traded.
 
-Like before, the medians can be obtained through the <a href="#the-roll-up-median-approach">roll-up approach</a>. With this final step, we have finally standardized the huge list of term-unit pairs into a single animal unit:
+As before, medians are obtained through the <a href="#the-roll-up-median-approach">roll-up approach</a>, and outliers are managed by <a href="#managing-outliers">flooring and capping at the 5th and 95th percentile</a> respectively.
+
+With this step, we have finally standardized over 200 distinct term-unit pairs into a single animal unit!
 
 ```{r}
 pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
