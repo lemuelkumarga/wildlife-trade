@@ -119,7 +119,7 @@ pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 <<pp-to-si>>
 
-post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
@@ -146,7 +146,7 @@ In order to ensure that the unit for each term is standardized, we will first ch
 
 output_str <- "Terms [with their Target Unit]:\n"
 terms_w_target_unit <- target_unit %>%
-                       mutate(outputString = paste0(Term, " [", ifelse(TargetUnit == "","count",TargetUnit), "]"))
+                       mutate(outputString = paste0(Term, " [", ifelse(Unit == "","count",Unit), "]"))
 
 output_str <- output_str %>%
               paste0(paste0(terms_w_target_unit$outputString,collapse=", "))
@@ -175,9 +175,8 @@ One potential challenge is that we do not have many data points for each species
 ```{r}
 output_tbl <- dataset %>% 
               filter(Taxon == "Loxodonta africana") %>%
-              left_join(target_unit, by=c("Term"="Term","ConvertedUnit" = "TargetUnit")) %>%
+              left_join(target_unit, by=c("Term","Unit")) %>%
               filter(is.na(NumberOfUnits)) %>%
-              mutate(Unit = ConvertedUnit) %>%
               group_by(Taxon, Term, Unit) %>%
               summarise(Records = n())
 
@@ -246,13 +245,88 @@ To sum up the flowchart above, for each species, we first attempt to count the n
 
 Using the following process, we are able to convert all the terms to their respective standardized units.
 ```{r}
-pre_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 <<pp-term-unit-final>>
 
-post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
+
+#### Well-Defined Terms
+
+Having standardized the units, we will now attempt to <span class="hl">convert each term to the equivalent number of live animals</span>. Listed below are each of the terms, along with their number of records:
+
+```{r}
+output_str <- "Terms [with their Records]:\n"
+terms_w_records <- dataset %>%
+                   group_by(Term, Unit) %>%
+                   summarise(Records = n()) %>%
+                   mutate(outputString = paste0(Term, ifelse(Unit == "","",paste0("/",Unit))," [", Records, "]")) %>%
+                   arrange(desc(Records))
+
+output_str <- output_str %>%
+              paste0(paste0(terms_w_records$outputString,collapse=", "))
+  
+cat(output_str)
+```
+
+Through observation, we notice that theterms can be differentiated into: well-defined or ambiguous. Well-defined terms are those that have clear associations with the number of animals. A good example of this would be tusk, since 2 of them is always the equivalent of 1 animal. 
+
+Listed below are the terms which we will describe as well-defined:
+
+```{r}
+<<pp-term-well-defined-overview>>
+
+output_str <- "Well-Defined Terms [with Number Per Live Animal]:\n"
+wdt <- well_defined_terms %>%
+       mutate(outputString = paste0(Term," [", perAnimal, "]"))
+output_str <- output_str %>%
+              paste0(paste0(wdt$outputString,collapse=", "))
+  
+cat(output_str)
+```
+
+Well-defined terms account for `r sprintf('%.0f%%',length(dataset$Term[dataset$Term %in% well_defined_terms$Term])/length(dataset$Term) * 100)` of the total number of records. To convert a well-defined term, we simply need to divide the quantity by the number of terms per animal:
+
+```{r}
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+<<pp-term-well-defined-convert>>
+
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
+
+#### Ambiguous Terms
+
+The final piece of the jigsaw is to convert ambiguous terms. These terms, by nature of their names, are somewhat vague, and there exists no clear association between them and the number of animals. For example, how many ivory pieces make up an elephant? Depending on the size of the pieces, these numbers would differ record by record.
+
+To simplify the conversion process, we will revisit our previous assumption when standardizing units of a term. Assuming that <span class="hl">across each species, the median quantity of each term corresponds to the same number of live animals</span>, we can subsequently convert ambiguous terms using the following equation:
+
+\[ q_{animal} = \frac{q_{at}}{m_{at}} \times m_{animal} \]
+
+where <br>
+\(q_{animal}\) corresponds to the quantity of animals, <br>
+\(q_{at}\) corresponds to the quantity of ambiguous terms, <br>
+\(m_{at}\) corresponds to the median quantity of the ambiguous terms (per record), and <br>
+\(m_{animal}\) corresponds to the median quantity of animals (per record).
+
+Like before, the medians can be obtained through the <a href="#the-roll-up-median-approach">roll-up approach</a>. With this final step, we have finally standardized the huge list of term-unit pairs into a single animal unit:
+
+```{r}
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+<<pp-term-ambiguous-convert>>
+
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+output_str <- sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100) %>%
+              paste0("\n","1 Unit Remaining: ",paste0(unique(dataset$Term), collapse=","))
+
+cat(output_str)
 ```
 
 ## Exploration

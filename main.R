@@ -27,12 +27,12 @@ for (yy in 2002:2015) {
 
 # Add Legends
 dataset <- dataset %>% 
-           left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
-           select(-Purpose) %>%
-           rename(Purpose = Explanation) %>%
-           left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
-           select(-Source) %>%
-           rename(Source = Explanation)
+  left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
+  select(-Purpose) %>%
+  rename(Purpose = Explanation) %>%
+  left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
+  select(-Source) %>%
+  rename(Source = Explanation)
 
 cols_summary <- data_overview(dataset)
 ## ---- end-of-data-overview
@@ -41,7 +41,7 @@ cols_summary <- data_overview(dataset)
 ## ---- pp-restrict-animals
 
 dataset <- dataset %>%
-           filter(Class != "")
+  filter(Class != "")
 
 ## ---- end-of-pp-restrict-animals
 
@@ -53,12 +53,12 @@ dataset <- dataset %>%
 iucn_dataset <- read.csv(paste0(data_dir,"iucn_list.csv"), fileEncoding="latin1")
 
 iucn_dataset <- iucn_dataset %>% 
-                select(Order,
-                       Family,
-                       Genus,
-                       Species,
-                       CommonName = Common.names..Eng.,
-                       IUCNStatus = Red.List.status)
+  select(Order,
+         Family,
+         Genus,
+         Species,
+         CommonName = Common.names..Eng.,
+         IUCNStatus = Red.List.status)
 iucn_dataset$IUCNStatus <- factor(iucn_dataset$IUCNStatus, 
                                   levels=c("EW","EX","VU","EN","CR"),
                                   ordered = TRUE)
@@ -69,8 +69,8 @@ iucn_dataset$IUCNStatus <- factor(iucn_dataset$IUCNStatus,
 # worst case scenario, i.e. choose the most endangered status
 # among species in the same family
 species_iucn_list <- iucn_dataset %>%
-                     mutate(Taxon = paste(Genus, Species)) %>%
-                     select(Taxon, CommonName, IUCNStatus)
+  mutate(Taxon = paste(Genus, Species)) %>%
+  select(Taxon, CommonName, IUCNStatus)
 group_iucn <- function (granular) {
   tmp_iucn_list <- iucn_dataset
   tmp_iucn_list["Taxon"] <- lapply(tmp_iucn_list[granular],
@@ -89,7 +89,7 @@ iucn_list <- rbind(species_iucn_list,
                    order_iucn_list)
 
 dataset <- dataset %>%
-           inner_join(iucn_list, by="Taxon")
+  inner_join(iucn_list, by="Taxon")
 
 ## ---- end-of-pp-restrict-endanger
 
@@ -97,11 +97,11 @@ dataset <- dataset %>%
 
 # Take the majority between input and output
 dataset <- dataset %>%
-            mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
-                         ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
-                         ifelse(Exporter.reported.quantity > Importer.reported.quantity,
-                                Exporter.reported.quantity,
-                                Importer.reported.quantity))))
+  mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
+                      ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
+                             ifelse(Exporter.reported.quantity > Importer.reported.quantity,
+                                    Exporter.reported.quantity,
+                                    Importer.reported.quantity))))
 
 ## ---- end-of-pp-terms-overview
 
@@ -123,46 +123,72 @@ units_to_si <- list(
   "microgrammes" = c("kg",1e-9)
 )
 
-dataset <- dataset %>% 
-           mutate(ConvertedUnit = Unit,
-                  ConvertedQty = Qty)
-
 for (i in which(dataset$Unit %in% names(units_to_si))) {
   qty <- dataset[i,"Qty"]
   unit <- dataset[i,"Unit"]
-  dataset[i,"ConvertedUnit"] <- units_to_si[[unit]][1]
-  dataset[i,"ConvertedQty"] <- as.double(units_to_si[[unit]][2]) * qty
+  dataset[i,"Unit"] <- units_to_si[[unit]][1]
+  dataset[i,"Qty"] <- as.double(units_to_si[[unit]][2]) * qty
 }
 ## ---- end-of-pp-to-si
 
 ## ---- pp-term-unit-summary
 term_unit_counts <- dataset %>%
-                    mutate(Unit = ConvertedUnit) %>%
-                    group_by(Term,Unit) %>%
-                    summarise(Records = n(),
-                              Quantity = sum(ConvertedQty))
+  group_by(Term,Unit) %>%
+  summarise(Records = n(),
+            Quantity = sum(Qty))
 
 ## ---- end-of-pp-term-unit-summary
 
 ## ---- pp-term-unit-target
 
 target_unit <- term_unit_counts %>%
-               ungroup() %>%
-               group_by(Term) %>%
-               mutate(r = rank(desc(Records), ties.method = 'first')) %>%
-               summarise(
-                 NumberOfUnits = n(),
-                 TargetUnit = max(ifelse(r == 1, Unit, NA), na.rm=TRUE),
-                 Records = max(ifelse(r == 1,Records,NA), na.rm=TRUE)
-               )
-
+  ungroup() %>%
+  group_by(Term) %>%
+  mutate(r = rank(desc(Records), ties.method = 'first')) %>%
+  summarise(
+    NumberOfUnits = n(),
+    Unit = max(ifelse(r == 1, Unit, NA), na.rm=TRUE),
+    Records = max(ifelse(r == 1,Records,NA), na.rm=TRUE)
+  )
 
 ## ---- end-of-pp-term-unit-target
 
 ## ---- pp-term-unit-final
 
-get_median_dictionary <- function(data) {
+# Convert the term and units of the dataset to their desired targets
+# @input data: the dataset
+# @input target: the target term-unit pairs. If we are converting
+# terms to standardized units, target should contain 2 columns: Term and Unit.
+# If we are converting terms to 1 term, target should contain 1 column: Term.
+convertViaMedian <- function(data, target) {
   
+  convert_term <- length(colnames(target)) == 1
+  # Add a Converted column to keep track which quantities have been converted and which has not
+  if (!("Converted" %in% colnames(data))) {
+    data["Converted"] <- FALSE
+  }
+  
+  # Initalize variables
+  taxonomy <- data %>% 
+    mutate(Kingdom = "Animalia") %>%
+    group_by(Kingdom,Class,Order,Family,Genus,Taxon) %>% 
+    summarise() %>% ungroup()
+  
+  if (convert_term) {
+    must_have_units <- data %>% 
+                      group_by(Taxon) %>%
+                      summarise()
+    must_have_units["Term"] <- target[1,"Term"]
+    must_have_units["Unit"] <- ""
+  } else {
+    must_have_units <- data %>% 
+      group_by(Taxon, Term) %>% 
+      summarise() %>% 
+      left_join(target, by="Term")
+  }
+  
+  
+  # Function to find the medians for each granularity groupings (Species, Genus, etc)
   get_medians <- function (data, granularity) {
     output <- data
     if (granularity == "Kingdom") {
@@ -172,28 +198,19 @@ get_median_dictionary <- function(data) {
     }
     output <- output %>% 
       filter(Grouping != '') %>%
-      mutate(Unit = ConvertedUnit) %>%
       group_by(Grouping, Term, Unit) %>%
       summarise(
         Records = n(),
-        Median = median(ConvertedQty)
+        Median = median(Qty)
       )
     return(output)
   }
   
-  # Initalize variables
-  taxonomy <- data %>% 
-              mutate(Kingdom = "Animalia") %>%
-              group_by(Kingdom,Class,Order,Family,Genus,Taxon) %>% 
-              summarise() %>% ungroup()
-  must_have_units <- data %>% 
-                     group_by(Taxon, Term) %>% 
-                     summarise() %>% 
-                     left_join(target_unit %>% select(Term, TargetUnit), by="Term")
+  # Create the median dictionaries which contains a Taxon, Term and Unit pair, along with their
+  # median trade quantities
   median_dict <- get_medians(data, "Taxon") %>%
-                 full_join(must_have_units, by=c("Grouping"="Taxon","Term"="Term","Unit"="TargetUnit")) %>%
-                 mutate(Records = ifelse(is.na(Records),0,Records))
-  
+    full_join(must_have_units, by=c("Grouping"="Taxon","Term"="Term","Unit"="Unit")) %>%
+    mutate(Records = ifelse(is.na(Records),0,Records))
   for (granular in c("Genus","Family","Order","Class","Kingdom")) {
     
     # Get the medians for a particular granularity
@@ -217,87 +234,66 @@ get_median_dictionary <- function(data) {
         Records = ifelse((granular == 'Kingdom' & Records == 0) |
                            (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
                          ProposedRecord, Records)
-       
+        
       ) %>%
       select(-Link, -ProposedRecord, -ProposedMedian)
   }
-  return(median_dict)
+  
+  # Convert the term-unit from their original to the target using the median roll-up approach
+  if (convert_term) {
+    data["TargetTerm"] <- target[1,"Term"]
+    data["TargetUnit"] <- ""
+  } else {
+    data <- data %>%
+      left_join(target %>% select(Term, TargetUnit = Unit), by="Term") %>%   
+      mutate(TargetTerm = Term)
+  }
+  
+  data <- data %>%
+    left_join(median_dict %>% select(Grouping, Term, Unit, NonTargetMedian = Median),
+              by = c("Taxon"="Grouping",
+                     "Term"="Term",
+                     "Unit"="Unit")) %>%
+    left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
+              by = c("Taxon"="Grouping",
+                     "TargetTerm"="Term",
+                     "TargetUnit"="Unit")) %>%
+    mutate(
+      Term = TargetTerm,
+      Unit = TargetUnit,
+      Qty = Qty / NonTargetMedian * TargetMedian,
+      Converted = NonTargetMedian != TargetMedian | Converted
+    ) %>%
+    select(-TargetTerm, -TargetUnit, -NonTargetMedian, -TargetMedian)
+  
+  return(data)
 }
 
-median_dict <- get_median_dictionary(dataset)
-
-dataset <- dataset %>%
-            left_join(target_unit %>% select(Term, TargetUnit), by="Term") %>%
-            left_join(median_dict %>% select(Grouping, Term, Unit, NonTargetMedian = Median),
-                      by = c("Taxon"="Grouping",
-                             "Term"="Term",
-                             "ConvertedUnit"="Unit")) %>%
-            left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
-                      by = c("Taxon"="Grouping",
-                             "Term"="Term",
-                             "TargetUnit"="Unit")) %>%
-            mutate(
-              ConvertedUnit = TargetUnit,
-              ConvertedQty = ConvertedQty / NonTargetMedian * TargetMedian
-            ) %>%
-            select(-TargetUnit, -NonTargetMedian, -TargetMedian)
+dataset <- convertViaMedian(dataset, target_unit %>% select(Term, Unit))
 
 ## ---- end-of-pp-term-unit-final
 
-get_terms_summary <- function(dataset) {
-  dataset %>%
-    group_by(Term,ConvertedUnit) %>%
-    summarise(Rows = n(),
-              TotalTrades = sum(Qty),
-              MedianTrades = median(Qty),
-              UniqueClasses = n_distinct(Class),
-              UniqueOrders = n_distinct(Order),
-              UniqueFamily = n_distinct(Family),
-              UniqueGenuses = n_distinct(Genus),
-              UniqueSpecies = n_distinct(Taxon))
-}
+## ---- pp-term-well-defined-overview
 
-terms_summary <- get_terms_summary(dataset)
+well_defined_terms <- read.csv(paste0(specs_dir, "well_defined_terms.csv"))
 
+## ---- end-of-pp-term-well-defined-overview
 
-# options(scipen = 999)
-# red_list_data <- read.csv(paste0(data_dir,"iucn_list.csv"), fileEncoding="latin1")
-# l <- c("Class","Order","Family","Genus","Species")
-# 
-# for (i in l) {
-#   red_list_data[i] <- lapply(red_list_data[i],
-#                                    function (x) {
-#                                      paste0(toupper(substr(x,1,1)), tolower(substr(x,2,nchar(x))))
-#                                    })
-# }
-# red_list_data <- red_list_data %>% mutate(Taxon = paste(Genus,tolower(Species)))
-# ranking <- red_list_data %>% 
-#            group_by(Taxon) %>% 
-#             mutate(r = rank(desc(Year.assessed), ties.method = 'first')) %>% filter(r == 1)
-# 
-# data <- read.csv(paste0(data_dir,"2015.csv")) %>%
-#         filter(Class != "" & Purpose != 'S') %>%
-#         mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
-#                             ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
-#                                    ifelse(Exporter.reported.quantity > Importer.reported.quantity,
-#                                           Exporter.reported.quantity,
-#                                           Importer.reported.quantity)))) %>%
-#         left_join(ranking %>% select(Taxon, Red.List.status), by=c("Taxon"))
-# summary <- data  %>%
-#             group_by(Term,Unit) %>%
-#             summarise(Total = sum(Qty),
-#                       Min = min(Qty),
-#                       Max = max(Qty),
-#                       Median = median(Qty),
-#                       Mean = mean(Qty),
-#                       SDev = sd(Qty),
-#                       Species = n_distinct(Taxon),
-#                       Class = n_distinct(Class),
-#                       Order = n_distinct(Order),
-#                       Family = n_distinct(Family),
-#                       Genus = n_distinct(Genus))
-# 
-# converted <- data %>% left_join(summary %>% select(Term, Unit, Median), by=c("Term","Unit")) %>% mutate(LiveUnits = Qty / Median)
-# cc <- converted %>% group_by(Taxon, Red.List.status) %>% summarise(LiveUnits = sum(LiveUnits))
-# 
-# cc_only_threatened <- cc %>% filter(Red.List.status %in% c('EX','EW','RE','CR','EN','VU'))
+## ---- pp-term-well-defined-convert
+
+dataset <- dataset %>%
+  left_join(well_defined_terms, by="Term") %>%
+  mutate(isWellDefined = !is.na(perAnimal),
+         Term = ifelse(isWellDefined, "animal",Term),
+         Unit = ifelse(isWellDefined, "", Unit),
+         Qty = ifelse(isWellDefined, 1. / perAnimal, 1.) * Qty) %>%
+  select(-perAnimal, -isWellDefined)
+
+## ---- end-of-pp-term-well-defined-convert
+
+## ---- pp-term-ambiguous-convert
+
+target <- data_frame(Term = "animal")
+dataset <- convertViaMedian(dataset, target)
+
+## ---- end-of-pp-term-ambiguous-convert

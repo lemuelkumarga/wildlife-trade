@@ -127,12 +127,12 @@ for (yy in 2002:2015) {
 
 # Add Legends
 dataset <- dataset %>% 
-           left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
-           select(-Purpose) %>%
-           rename(Purpose = Explanation) %>%
-           left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
-           select(-Source) %>%
-           rename(Source = Explanation)
+  left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
+  select(-Purpose) %>%
+  rename(Purpose = Explanation) %>%
+  left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
+  select(-Source) %>%
+  rename(Source = Explanation)
 
 cols_summary <- data_overview(dataset)
   
@@ -201,7 +201,7 @@ non-animals from the dataset.
 pre_clean <- nrow(dataset)
 
 dataset <- dataset %>%
-           filter(Class != "")
+  filter(Class != "")
 
 post_clean <- nrow(dataset)
   
@@ -231,12 +231,12 @@ pre_clean <- nrow(dataset)
 iucn_dataset <- read.csv(paste0(data_dir,"iucn_list.csv"), fileEncoding="latin1")
 
 iucn_dataset <- iucn_dataset %>% 
-                select(Order,
-                       Family,
-                       Genus,
-                       Species,
-                       CommonName = Common.names..Eng.,
-                       IUCNStatus = Red.List.status)
+  select(Order,
+         Family,
+         Genus,
+         Species,
+         CommonName = Common.names..Eng.,
+         IUCNStatus = Red.List.status)
 iucn_dataset$IUCNStatus <- factor(iucn_dataset$IUCNStatus, 
                                   levels=c("EW","EX","VU","EN","CR"),
                                   ordered = TRUE)
@@ -247,8 +247,8 @@ iucn_dataset$IUCNStatus <- factor(iucn_dataset$IUCNStatus,
 # worst case scenario, i.e. choose the most endangered status
 # among species in the same family
 species_iucn_list <- iucn_dataset %>%
-                     mutate(Taxon = paste(Genus, Species)) %>%
-                     select(Taxon, CommonName, IUCNStatus)
+  mutate(Taxon = paste(Genus, Species)) %>%
+  select(Taxon, CommonName, IUCNStatus)
 group_iucn <- function (granular) {
   tmp_iucn_list <- iucn_dataset
   tmp_iucn_list["Taxon"] <- lapply(tmp_iucn_list[granular],
@@ -267,7 +267,7 @@ iucn_list <- rbind(species_iucn_list,
                    order_iucn_list)
 
 dataset <- dataset %>%
-           inner_join(iucn_list, by="Taxon")
+  inner_join(iucn_list, by="Taxon")
 
 post_clean <- nrow(dataset)
 
@@ -287,11 +287,11 @@ Thse are the terms left to be standardized:
 ``` r
 # Take the majority between input and output
 dataset <- dataset %>%
-            mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
-                         ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
-                         ifelse(Exporter.reported.quantity > Importer.reported.quantity,
-                                Exporter.reported.quantity,
-                                Importer.reported.quantity))))
+  mutate(Qty = ifelse(is.na(Importer.reported.quantity),Exporter.reported.quantity,
+                      ifelse(is.na(Exporter.reported.quantity),Importer.reported.quantity,
+                             ifelse(Exporter.reported.quantity > Importer.reported.quantity,
+                                    Exporter.reported.quantity,
+                                    Importer.reported.quantity))))
 
 output_str <- "List of Terms:\n" %>%
                paste0(paste0(unique(dataset$Term), collapse=", "),"\n\n") %>%
@@ -334,18 +334,14 @@ units_to_si <- list(
   "microgrammes" = c("kg",1e-9)
 )
 
-dataset <- dataset %>% 
-           mutate(ConvertedUnit = Unit,
-                  ConvertedQty = Qty)
-
 for (i in which(dataset$Unit %in% names(units_to_si))) {
   qty <- dataset[i,"Qty"]
   unit <- dataset[i,"Unit"]
-  dataset[i,"ConvertedUnit"] <- units_to_si[[unit]][1]
-  dataset[i,"ConvertedQty"] <- as.double(units_to_si[[unit]][2]) * qty
+  dataset[i,"Unit"] <- units_to_si[[unit]][1]
+  dataset[i,"Qty"] <- as.double(units_to_si[[unit]][2]) * qty
 }
 
-post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
@@ -360,10 +356,9 @@ recorded in counts, kilograms and even metres:
 
 ``` r
 term_unit_counts <- dataset %>%
-                    mutate(Unit = ConvertedUnit) %>%
-                    group_by(Term,Unit) %>%
-                    summarise(Records = n(),
-                              Quantity = sum(ConvertedQty))
+  group_by(Term,Unit) %>%
+  summarise(Records = n(),
+            Quantity = sum(Qty))
   
 output_tbl <- term_unit_counts %>%
               filter(Term == "bodies")
@@ -390,18 +385,18 @@ term:
 
 ``` r
 target_unit <- term_unit_counts %>%
-               ungroup() %>%
-               group_by(Term) %>%
-               mutate(r = rank(desc(Records), ties.method = 'first')) %>%
-               summarise(
-                 NumberOfUnits = n(),
-                 TargetUnit = max(ifelse(r == 1, Unit, NA), na.rm=TRUE),
-                 Records = max(ifelse(r == 1,Records,NA), na.rm=TRUE)
-               )
+  ungroup() %>%
+  group_by(Term) %>%
+  mutate(r = rank(desc(Records), ties.method = 'first')) %>%
+  summarise(
+    NumberOfUnits = n(),
+    Unit = max(ifelse(r == 1, Unit, NA), na.rm=TRUE),
+    Records = max(ifelse(r == 1,Records,NA), na.rm=TRUE)
+  )
 
 output_str <- "Terms [with their Target Unit]:\n"
 terms_w_target_unit <- target_unit %>%
-                       mutate(outputString = paste0(Term, " [", ifelse(TargetUnit == "","count",TargetUnit), "]"))
+                       mutate(outputString = paste0(Term, " [", ifelse(Unit == "","count",Unit), "]"))
 
 output_str <- output_str %>%
               paste0(paste0(terms_w_target_unit$outputString,collapse=", "))
@@ -410,7 +405,7 @@ cat(output_str)
 ```
 
     ## Terms [with their Target Unit]:
-    ## baleen [count], bodies [count], bone carvings [count], bone pieces [count], bones [count], calipee [count], carapaces [count], carvings [count], caviar [kg], claws [count], cloth [count], coral sand [kg], cosmetics [kg], derivatives [count], dried plants [count], ears [count], eggs [kg], eggs (live) [count], extract [kg], feathers [count], feet [count], fingerlings [kg], fins [kg], fur products (large) [count], gall [count], gall bladders [count], garments [count], genitalia [count], hair [count], hair products [count], horn carvings [count], horn pieces [count], horns [count], ivory carvings [count], ivory pieces [count], ivory scraps [count], jewellery [count], jewellery - ivory  [count], leather items [count], leather products (large) [count], leather products (small) [count], live [count], meat [kg], medicine [kg], musk [kg], oil [count], piano keys [count], plates [count], powder [kg], raw corals [count], rug [count], scales [count], sets of piano keys [count], shells [count], shoes [count], sides [count], skeletons [count], skin pieces [count], skins [count], skin scraps [count], skulls [count], specimens [count], swim bladders [kg], tails [count], teeth [count], trophies [count], trunk [count], tusks [count], unspecified [count], venom [kg], wax [kg]
+    ## baleen [count], bodies [count], bone carvings [count], bone pieces [count], bones [count], calipee [count], carapaces [count], carvings [count], caviar [kg], claws [count], cloth [count], coral sand [kg], cosmetics [kg], derivatives [count], dried plants [count], ears [count], eggs [kg], eggs (live) [count], extract [kg], feathers [count], feet [count], fingerlings [kg], fins [kg], fur products (large) [count], gall [count], gall bladders [count], garments [count], genitalia [count], hair [count], hair products [count], horn carvings [count], horn pieces [count], horns [count], ivory carvings [count], ivory pieces [count], ivory scraps [count], jewellery [count], jewellery - ivory  [count], leather items [count], leather products (large) [count], leather products (small) [count], live [count], meat [kg], medicine [kg], musk [kg], oil [count], piano keys [count], plates [count], powder [kg], raw corals [count], rug [count], scales [count], sets of piano keys [count], shells [count], shoes [count], sides [count], skeletons [count], skin pieces [count], skin scraps [count], skins [count], skulls [count], specimens [count], swim bladders [kg], tails [count], teeth [count], trophies [count], trunk [count], tusks [count], unspecified [count], venom [kg], wax [kg]
 
 The tricky part comes in when we attempt to convert a quantity from a
 non-target unit to the target unit. During this step, we will assume
@@ -445,9 +440,8 @@ units:
 ``` r
 output_tbl <- dataset %>% 
               filter(Taxon == "Loxodonta africana") %>%
-              left_join(target_unit, by=c("Term"="Term","ConvertedUnit" = "TargetUnit")) %>%
+              left_join(target_unit, by=c("Term","Unit")) %>%
               filter(is.na(NumberOfUnits)) %>%
-              mutate(Unit = ConvertedUnit) %>%
               group_by(Taxon, Term, Unit) %>%
               summarise(Records = n())
 
@@ -527,11 +521,11 @@ grViz(paste0("
 
 <!--html_preserve-->
 
-<div id="htmlwidget-05032783aa1ef472ea0a" class="grViz html-widget" style="width:672px;height:700px;">
+<div id="htmlwidget-42f027d41e73cf4285f8" class="grViz html-widget" style="width:672px;height:700px;">
 
 </div>
 
-<script type="application/json" data-for="htmlwidget-05032783aa1ef472ea0a">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-42f027d41e73cf4285f8">{"x":{"diagram":"\n  digraph RollUp {\n\n    # Default Specs\n    graph [compound = true, nodesep = .5, ranksep = .25]\n    node [fontname = \"Source Sans Pro\", fontsize = 14, fontcolor = \"#ffffff\", penwidth=0, color=\"#424242BF\", style=filled]\n    edge [fontname = \"Source Sans Pro\", fontcolor = \"#424242BF\", color=\"#424242BF\"]\n    \n    # Input Specs\n    Inp [fillcolor = \"#424242BF\", label = \"(Species s, Term t, Unit u)\", shape = rectangle]\n\n    # Conclude Specs\n    node [shape = oval]\n    Species_Y [label = \"Use the median quantity\nof Species s, Term t and Unit u.\", fillcolor = \"#335A87\"]\n    Genus_Y [label = \"Use the median quantity\nof Genus g, Term t and Unit u.\", fillcolor = \"#3C7759\"]\n    Family_Y [label = \"Use the median quantity\nof Family f, Term t and Unit u.\", fillcolor = \"#A43820\"]\n    Order_Y [label = \"Use the median quantity\nof Order o, Term t and Unit u.\", fillcolor = \"#5C3C7C\"]\n    Class_Y [label = \"Use the median quantity\nof Class c, Term t and Unit u.\", fillcolor = \"#377D95\"]\n    Kingdom_Y [label = \"Use the median quantity\nof Term t and Unit u (across all).\", fillcolor = \"#424242\"]\n\n    # Trigger Specs\n    node [shape = diamond, fillcolor = \"#ffffff\", fontcolor = \"#424242\", penwidth = 1]\n    Species_T [label = \"Does the Species s\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Species_T, Species_Y }\n    Genus_T [label = \"Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Genus_T, Genus_Y }\n    Family_T [label = \"Does f (the Family of g)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Family_T, Family_Y }\n    Order_T [label = \"Does o (the Order of f)\nhave >=10 records\nfor the term t and unit u?\"]\n    { rank = same; Order_T, Order_Y }\n    Class_T [label = \"Does c (the Class of o)\nhave any record\nfor the term t and unit u?\"]\n    { rank = same; Class_T, Class_Y }\n\n    # Yes edges\n    Inp -> Species_T\n    edge [arrowhead = \"box\", label = \"Yes\"]\n    Species_T -> Species_Y\n    Genus_T -> Genus_Y\n    Family_T -> Family_Y\n    Order_T -> Order_Y\n    Class_T -> Class_Y\n    \n    # No edges\n    edge [label = \"     No\"]\n    Species_T -> Genus_T\n    Genus_T -> Family_T\n    Family_T -> Order_T\n    Order_T -> Class_T\n    Class_T -> Kingdom_Y\n\n  }\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 <!--/html_preserve-->
 
@@ -543,14 +537,45 @@ continues until we obtain a sufficient number of records (in this case
 10) to calculate the median.
 
 Using the following process, we are able to convert all the terms to
-their respective standardized
-units.
+their respective standardized units.
 
 ``` r
-pre_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
-get_median_dictionary <- function(data) {
+# Convert the term and units of the dataset to their desired targets
+# @input data: the dataset
+# @input target: the target term-unit pairs. If we are converting
+# terms to standardized units, target should contain 2 columns: Term and Unit.
+# If we are converting terms to 1 term, target should contain 1 column: Term.
+convertViaMedian <- function(data, target) {
   
+  convert_term <- length(colnames(target)) == 1
+  # Add a Converted column to keep track which quantities have been converted and which has not
+  if (!("Converted" %in% colnames(data))) {
+    data["Converted"] <- FALSE
+  }
+  
+  # Initalize variables
+  taxonomy <- data %>% 
+    mutate(Kingdom = "Animalia") %>%
+    group_by(Kingdom,Class,Order,Family,Genus,Taxon) %>% 
+    summarise() %>% ungroup()
+  
+  if (convert_term) {
+    must_have_units <- data %>% 
+                      group_by(Taxon) %>%
+                      summarise()
+    must_have_units["Term"] <- target[1,"Term"]
+    must_have_units["Unit"] <- ""
+  } else {
+    must_have_units <- data %>% 
+      group_by(Taxon, Term) %>% 
+      summarise() %>% 
+      left_join(target, by="Term")
+  }
+  
+  
+  # Function to find the medians for each granularity groupings (Species, Genus, etc)
   get_medians <- function (data, granularity) {
     output <- data
     if (granularity == "Kingdom") {
@@ -560,28 +585,19 @@ get_median_dictionary <- function(data) {
     }
     output <- output %>% 
       filter(Grouping != '') %>%
-      mutate(Unit = ConvertedUnit) %>%
       group_by(Grouping, Term, Unit) %>%
       summarise(
         Records = n(),
-        Median = median(ConvertedQty)
+        Median = median(Qty)
       )
     return(output)
   }
   
-  # Initalize variables
-  taxonomy <- data %>% 
-              mutate(Kingdom = "Animalia") %>%
-              group_by(Kingdom,Class,Order,Family,Genus,Taxon) %>% 
-              summarise() %>% ungroup()
-  must_have_units <- data %>% 
-                     group_by(Taxon, Term) %>% 
-                     summarise() %>% 
-                     left_join(target_unit %>% select(Term, TargetUnit), by="Term")
+  # Create the median dictionaries which contains a Taxon, Term and Unit pair, along with their
+  # median trade quantities
   median_dict <- get_medians(data, "Taxon") %>%
-                 full_join(must_have_units, by=c("Grouping"="Taxon","Term"="Term","Unit"="TargetUnit")) %>%
-                 mutate(Records = ifelse(is.na(Records),0,Records))
-  
+    full_join(must_have_units, by=c("Grouping"="Taxon","Term"="Term","Unit"="Unit")) %>%
+    mutate(Records = ifelse(is.na(Records),0,Records))
   for (granular in c("Genus","Family","Order","Class","Kingdom")) {
     
     # Get the medians for a particular granularity
@@ -605,37 +621,162 @@ get_median_dictionary <- function(data) {
         Records = ifelse((granular == 'Kingdom' & Records == 0) |
                            (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
                          ProposedRecord, Records)
-       
+        
       ) %>%
       select(-Link, -ProposedRecord, -ProposedMedian)
   }
-  return(median_dict)
+  
+  # Convert the term-unit from their original to the target using the median roll-up approach
+  if (convert_term) {
+    data["TargetTerm"] <- target[1,"Term"]
+    data["TargetUnit"] <- ""
+  } else {
+    data <- data %>%
+      left_join(target %>% select(Term, TargetUnit = Unit), by="Term") %>%   
+      mutate(TargetTerm = Term)
+  }
+  
+  data <- data %>%
+    left_join(median_dict %>% select(Grouping, Term, Unit, NonTargetMedian = Median),
+              by = c("Taxon"="Grouping",
+                     "Term"="Term",
+                     "Unit"="Unit")) %>%
+    left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
+              by = c("Taxon"="Grouping",
+                     "TargetTerm"="Term",
+                     "TargetUnit"="Unit")) %>%
+    mutate(
+      Term = TargetTerm,
+      Unit = TargetUnit,
+      Qty = Qty / NonTargetMedian * TargetMedian,
+      Converted = NonTargetMedian != TargetMedian | Converted
+    ) %>%
+    select(-TargetTerm, -TargetUnit, -NonTargetMedian, -TargetMedian)
+  
+  return(data)
 }
 
-median_dict <- get_median_dictionary(dataset)
+dataset <- convertViaMedian(dataset, target_unit %>% select(Term, Unit))
 
-dataset <- dataset %>%
-            left_join(target_unit %>% select(Term, TargetUnit), by="Term") %>%
-            left_join(median_dict %>% select(Grouping, Term, Unit, NonTargetMedian = Median),
-                      by = c("Taxon"="Grouping",
-                             "Term"="Term",
-                             "ConvertedUnit"="Unit")) %>%
-            left_join(median_dict %>% select(Grouping, Term, Unit, TargetMedian = Median),
-                      by = c("Taxon"="Grouping",
-                             "Term"="Term",
-                             "TargetUnit"="Unit")) %>%
-            mutate(
-              ConvertedUnit = TargetUnit,
-              ConvertedQty = ConvertedQty / NonTargetMedian * TargetMedian
-            ) %>%
-            select(-TargetUnit, -NonTargetMedian, -TargetMedian)
-
-post_clean <- nrow(dataset %>% group_by(Term, ConvertedUnit) %>% summarise())
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
 
 cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
 ```
 
     ## 90 term-unit pairs removed (56% of total)
+
+#### Well-Defined Terms
+
+Having standardized the units, we will now attempt to
+<span class="hl">convert each term to the equivalent number of live
+animals</span>. Listed below are each of the terms, along with their
+number of records:
+
+``` r
+output_str <- "Terms [with their Records]:\n"
+terms_w_records <- dataset %>%
+                   group_by(Term, Unit) %>%
+                   summarise(Records = n()) %>%
+                   mutate(outputString = paste0(Term, ifelse(Unit == "","",paste0("/",Unit))," [", Records, "]")) %>%
+                   arrange(desc(Records))
+
+output_str <- output_str %>%
+              paste0(paste0(terms_w_records$outputString,collapse=", "))
+  
+cat(output_str)
+```
+
+    ## Terms [with their Records]:
+    ## live [40062], trophies [9633], raw corals [9445], specimens [7971], eggs/kg [4858], leather products (small) [4365], skins [4047], tusks [3105], skulls [2758], carvings [2653], teeth [2077], bodies [1965], ivory carvings [1820], skin pieces [1575], feet [1275], derivatives [1002], leather products (large) [974], bones [837], tails [805], ears [680], feathers [562], hair [535], caviar/kg [478], garments [462], claws [372], meat/kg [360], shells [354], shoes [311], ivory pieces [309], carapaces [253], musk/kg [177], extract/kg [172], unspecified [139], horns [128], skeletons [109], bone carvings [104], hair products [99], medicine/kg [90], bone pieces [88], fins/kg [68], plates [54], baleen [50], genitalia [47], wax/kg [40], horn carvings [34], eggs (live) [28], scales [27], powder/kg [17], fingerlings/kg [13], horn pieces [12], gall [11], sides [9], leather items [8], oil [7], swim bladders/kg [7], rug [6], cosmetics/kg [5], trunk [5], coral sand/kg [4], jewellery [4], ivory scraps [3], jewellery - ivory  [3], cloth [2], gall bladders [2], calipee [1], dried plants [1], fur products (large) [1], piano keys [1], sets of piano keys [1], skin scraps [1], venom/kg [1]
+
+Through observation, we notice that theterms can be differentiated into:
+well-defined or ambiguous. Well-defined terms are those that have clear
+associations with the number of animals. A good example of this would be
+tusk, since 2 of them is always the equivalent of 1 animal.
+
+Listed below are the terms which we will describe as
+well-defined:
+
+``` r
+well_defined_terms <- read.csv(paste0(specs_dir, "well_defined_terms.csv"))
+
+output_str <- "Well-Defined Terms [with Number Per Live Animal]:\n"
+wdt <- well_defined_terms %>%
+       mutate(outputString = paste0(Term," [", perAnimal, "]"))
+output_str <- output_str %>%
+              paste0(paste0(wdt$outputString,collapse=", "))
+  
+cat(output_str)
+```
+
+    ## Well-Defined Terms [with Number Per Live Animal]:
+    ## live [1], trophies [1], raw corals [1], specimens [1], tusks [2], skulls [1], bodies [1], tails [1], ears [2], genitalia [1], horns [1], trunk [1]
+
+Well-defined terms account for 71% of the total number of records. To
+convert a well-defined term, we simply need to divide the quantity by
+the number of terms per animal:
+
+``` r
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+dataset <- dataset %>%
+  left_join(well_defined_terms, by="Term") %>%
+  mutate(isWellDefined = !is.na(perAnimal),
+         Term = ifelse(isWellDefined, "animal",Term),
+         Unit = ifelse(isWellDefined, "", Unit),
+         Qty = ifelse(isWellDefined, 1. / perAnimal, 1.) * Qty) %>%
+  select(-perAnimal, -isWellDefined)
+
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+cat(sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100))
+```
+
+    ## 11 term-unit pairs removed (15% of total)
+
+#### Ambiguous Terms
+
+The final piece of the jigsaw is to convert ambiguous terms. These
+terms, by nature of their names, are somewhat vague, and there exists no
+clear association between them and the number of animals. For example,
+how many ivory pieces make up an elephant? Depending on the size of the
+pieces, these numbers would differ record by record.
+
+To simplify the conversion process, we will revisit our previous
+assumption when standardizing units of a term. Assuming that
+<span class="hl">across each species, the median quantity of each term
+corresponds to the same number of live animals</span>, we can
+subsequently convert ambiguous terms using the following equation:
+
+\[ q_{animal} = \frac{q_{at}}{m_{at}} \times m_{animal} \]
+
+where <br> \(q_{animal}\) corresponds to the quantity of animals, <br>
+\(q_{at}\) corresponds to the quantity of ambiguous terms, <br>
+\(m_{at}\) corresponds to the median quantity of the ambiguous terms
+(per record), and <br> \(m_{animal}\) corresponds to the median quantity
+of animals (per record).
+
+Like before, the medians can be obtained through the
+<a href="#the-roll-up-median-approach">roll-up approach</a>. With this
+final step, we have finally standardized the huge list of term-unit
+pairs into a single animal unit:
+
+``` r
+pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+target <- data_frame(Term = "animal")
+dataset <- convertViaMedian(dataset, target)
+
+post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
+
+output_str <- sprintf("%i term-unit pairs removed (%.0f%% of total)",pre_clean - post_clean,(pre_clean - post_clean)/pre_clean * 100) %>%
+              paste0("\n","1 Unit Remaining: ",paste0(unique(dataset$Term), collapse=","))
+
+cat(output_str)
+```
+
+    ## 59 term-unit pairs removed (98% of total)
+    ## 1 Unit Remaining: animal
 
 ## Exploration
 
