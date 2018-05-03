@@ -8,7 +8,7 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
-packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR")
+packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR","ggraph","igraph")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -304,3 +304,68 @@ target <- data_frame(Term = "animal")
 dataset <- convertViaMedian(dataset, target)
 
 ## ---- end-of-pp-term-ambiguous-convert
+
+# Exploration ----
+
+## ---- exp-species
+
+trades_by_species <- dataset %>%
+                     group_by(Class, Order, Family, Genus, Taxon, CommonName) %>%
+                     summarise(total_trades = sum(Qty)) %>%
+                     ungroup()
+trades_by_species[['CommonName']] <- sapply(trades_by_species[['CommonName']], function(x) { strsplit(x,", ")[[1]][1] })
+
+trades_top_100 <- trades_by_species %>%
+                  arrange(desc(total_trades)) %>%
+                  head(100) %>%
+                  group_by(Class) %>%
+                  mutate(Node=Taxon,
+                         Group=Class,
+                         Weight=total_trades,
+                         Category=Class,
+                         Alpha=1/rank(desc(total_trades), ties.method="first"),
+                         Label=ifelse(Alpha == 1,ifelse(!is.na(CommonName),CommonName,Taxon),"")) %>%
+                  ungroup()
+                  
+trades_by_class <- trades_top_100 %>%
+                   mutate(Family="Animalia") %>%
+                   group_by(Family, Class) %>%
+                   summarise(total_trades = sum(total_trades)) %>%
+                   mutate(Node = Class,
+                          Group = Family,
+                          Weight=total_trades,
+                          Category=Class,
+                          Alpha=0.,
+                          Label="") %>%
+                   ungroup()
+
+# Construct Graph to Plot Circle Pack
+edges <- rbind(trades_by_class %>% select(Group, Node),
+               trades_top_100 %>% select(Group, Node))
+
+vertices <- rbind(data.frame(Node="Animalia",Weight=sum(trades_by_class$total_trades), Category=NA, Alpha=0,Label=""),
+                  trades_by_class %>% select(Node, Weight, Category, Alpha, Label),
+                  trades_top_100 %>% select(Node, Weight, Category, Alpha, Label))
+
+species_graph <- graph_from_data_frame(edges, vertices=vertices)
+
+# Plot Circle Pack
+p_species <- ggraph(species_graph, layout='circlepack', weight='Weight') +
+             theme_lk() + 
+             theme(plot.title=element_blank(),
+                   axis.line.x=element_blank(),
+                   axis.title.x=element_blank(),
+                   axis.text.x=element_blank(),
+                   axis.ticks.x=element_blank(),
+                   axis.line.y=element_blank(),
+                   axis.title.y=element_blank(),
+                   axis.text.y=element_blank(),
+                   axis.ticks.y=element_blank()) + 
+             geom_node_circle(aes(fill=Category, alpha=Alpha), color=bg_color) +
+             geom_node_label(aes(fill=Category, label=Label, filter=Label!=""), color=bg_color, alpha=0.9) +
+             scale_fill_manual(values=c(get_color("palette")(length(unique(vertices$Category))-1)), guide="none") + 
+             scale_alpha_continuous(guide="none") +
+             scale_size_continuous(guide="none")
+             
+
+## ---- end-of-exp-species
