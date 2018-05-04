@@ -8,7 +8,8 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
-packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR","htmlwidgets","streamgraph","sunburstR")
+packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR",
+              "htmlwidgets","streamgraph","waffle","sunburstR")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -331,6 +332,39 @@ streamgraph_plot <- suppressWarnings(
 
 ## ---- end-of-exp-time
 
+## ---- exp-purpose
+
+entertainment <- c("Circus/Travelling Exhibition","Zoo")
+conservation <- c("Reintroduction To Wild","Breeding")
+science <- c("Educational",
+             "Law Enforcement",
+             "Scientific")
+trades_by_purpose <- dataset %>%
+                     mutate(Purpose = 
+                              ifelse(is.na(Purpose),"Unknown",
+                              ifelse(Purpose %in% science,"Science", 
+                              ifelse(Purpose %in% conservation, "Conservation",
+                              ifelse(Purpose %in% entertainment, "Entertainment", 
+                                     Purpose))))) %>%
+                     group_by(Purpose) %>%
+                     summarise(total_trades = sum(Qty)) %>%
+                     mutate(total_trades = as.integer(total_trades)) %>%
+                     ungroup()
+
+w_colors <- c("Commercial"=get_color("red"),
+              "Hunting"=get_color("red",0.75),
+              "Personal"=get_color("red",0.5),
+              "Medical"=get_color("yellow"),
+              "Entertainment"=get_color("purple"),
+              "Science"=get_color("blue"),
+              "Conservation"=get_color("green"),
+              "Unknown"=ltxt_color)
+waffle_input <- trades_by_purpose$total_trades
+names(waffle_input) <- trades_by_purpose$Purpose
+waffle_input <- waffle_input[order(factor(names(waffle_input),levels = names(w_colors)))]
+
+waffle(ceiling(waffle_input  / 250000), rows=10, colors = w_colors)
+## ---- end-of-exp-purpose
 
 ## ---- exp-species
 
