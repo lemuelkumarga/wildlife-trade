@@ -301,6 +301,12 @@ post_clean_str()
 streamgraph_plot
 ```
 
+```{r, fig.asp=0.35}
+<<exp-purpose>>
+
+waffle_plot
+```
+
 ```{r}
 <<exp-species>>
 

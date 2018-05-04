@@ -8,7 +8,7 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
-packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR",
+packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
               "htmlwidgets","streamgraph","waffle","sunburstR")
 load_or_install.packages(packages)
 
@@ -334,17 +334,18 @@ streamgraph_plot <- suppressWarnings(
 
 ## ---- exp-purpose
 
-entertainment <- c("Circus/Travelling Exhibition","Zoo")
 conservation <- c("Reintroduction To Wild","Breeding")
 science <- c("Educational",
-             "Law Enforcement",
-             "Scientific")
+             "Scientific",
+             "Zoo")
+others <- c("Circus/Travelling Exhibition",
+            "Law Enforcement")
 trades_by_purpose <- dataset %>%
                      mutate(Purpose = 
-                              ifelse(is.na(Purpose),"Unknown",
+                              ifelse(is.na(Purpose),"Others/Unknown",
                               ifelse(Purpose %in% science,"Science", 
                               ifelse(Purpose %in% conservation, "Conservation",
-                              ifelse(Purpose %in% entertainment, "Entertainment", 
+                              ifelse(Purpose %in% others, "Others/Unknown", 
                                      Purpose))))) %>%
                      group_by(Purpose) %>%
                      summarise(total_trades = sum(Qty)) %>%
@@ -352,18 +353,26 @@ trades_by_purpose <- dataset %>%
                      ungroup()
 
 w_colors <- c("Commercial"=get_color("red"),
-              "Hunting"=get_color("red",0.75),
-              "Personal"=get_color("red",0.5),
-              "Medical"=get_color("yellow"),
-              "Entertainment"=get_color("purple"),
+              "Hunting"=get_color("orange"),
+              "Personal"=get_color("yellow"),
+              "Medical"=get_color("purple"),
               "Science"=get_color("blue"),
               "Conservation"=get_color("green"),
-              "Unknown"=ltxt_color)
+              "Others/Unknown"=ltxt_color,
+              ltxt_color)
 waffle_input <- trades_by_purpose$total_trades
 names(waffle_input) <- trades_by_purpose$Purpose
-waffle_input <- waffle_input[order(factor(names(waffle_input),levels = names(w_colors)))]
+waffle_input <- waffle_input[order(factor(names(waffle_input),levels = names(w_colors)))] %>%
+                sapply(function (x) { max(x / sum(waffle_input) * 200,1) })
 
-waffle(ceiling(waffle_input  / 250000), rows=10, colors = w_colors)
+waffle_plot <- suppressMessages(
+                waffle(waffle_input, rows=5, size=1.3) + 
+                theme_lk(TRUE, TRUE, FALSE, FALSE) +
+                scale_fill_manual(name = "Purpose", values=w_colors) +
+                xlab(paste0("1 Square ~ ",
+                            comma(round(sum(trades_by_purpose$total_trades) / 200)),
+                            " Trades (0.5% of Total)"))
+                )
 ## ---- end-of-exp-purpose
 
 ## ---- exp-species
