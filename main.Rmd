@@ -295,6 +295,30 @@ post_clean_str()
 
 ## Exploration
 
+```{r}
+<<exp-time>>
+
+streamgraph_plot
+```
+
+```{r}
+<<exp-species>>
+
+# Centerize the sunburst plot
+htmlwidgets::onRender(
+    sunburst_plot,
+    "
+    function(el, x) {
+    $('.sunburst-chart').css('width', 'initial');
+    $('.sunburst-chart').css('height', 'initial');
+    $('.sunburst-chart').css('left', '50%');
+    $('.sunburst-chart').css('transform', 'translate(-50%, 0)');
+    }
+    "
+)
+
+```
+
 ## Tracing Supply and Demand
 
 ### The Algorithm

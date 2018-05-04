@@ -8,7 +8,7 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
-packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR","ggraph","igraph")
+packages <- c("dplyr","ggplot2","tidyr","pander","DiagrammeR","htmlwidgets","streamgraph","sunburstR")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -307,65 +307,92 @@ dataset <- convertViaMedian(dataset, target)
 
 # Exploration ----
 
+## ---- exp-time
+
+trades_by_time <- dataset %>%
+                  filter(!(IUCNStatus %in% c("EW","EX"))) %>%
+                  mutate(IUCNLabel = ifelse(IUCNStatus == "CR", "Critical",
+                                            ifelse(IUCNStatus == "EN", "Endangered",
+                                                   "Vulnerable"))) %>%
+                  group_by(Year,IUCNLabel) %>%
+                  summarise(total_trades = round(sum(Qty)))
+                  
+trades_by_time$IUCNLabel <- factor(trades_by_time$IUCNLabel, 
+                                    levels=c("Vulnerable","Endangered","Critical"),
+                                    ordered = TRUE)
+
+streamgraph_plot <- suppressWarnings(
+                      streamgraph(trades_by_time, key="IUCNLabel", value="total_trades", date="Year", offset="zero",
+                                                   width=750, height=300,left=70) %>%
+                      sg_colors(axis_color = ltxt_color, tooltip_color = ltxt_color) %>%
+                      sg_axis_x(2) %>%
+                      sg_fill_manual(c(get_color("red"), get_color("red", 0.6), get_color("red", 0.3)))
+                    )
+
+## ---- end-of-exp-time
+
+
 ## ---- exp-species
 
+# Kudos to http://timelyportfolio.github.io/sunburstR/example_baseball.html
+# for sunburst reference
 trades_by_species <- dataset %>%
                      group_by(Class, Order, Family, Genus, Taxon, CommonName) %>%
                      summarise(total_trades = sum(Qty)) %>%
                      ungroup()
 trades_by_species[['CommonName']] <- sapply(trades_by_species[['CommonName']], function(x) { strsplit(x,", ")[[1]][1] })
 
-trades_top_100 <- trades_by_species %>%
-                  arrange(desc(total_trades)) %>%
-                  head(100) %>%
+sunburst_input <- trades_by_species %>%
                   group_by(Class) %>%
-                  mutate(Node=Taxon,
-                         Group=Class,
-                         Weight=total_trades,
-                         Category=Class,
-                         Alpha=1/rank(desc(total_trades), ties.method="first"),
-                         Label=ifelse(Alpha == 1,ifelse(!is.na(CommonName),CommonName,Taxon),"")) %>%
-                  ungroup()
-                  
-trades_by_class <- trades_top_100 %>%
-                   mutate(Family="Animalia") %>%
-                   group_by(Family, Class) %>%
-                   summarise(total_trades = sum(total_trades)) %>%
-                   mutate(Node = Class,
-                          Group = Family,
-                          Weight=total_trades,
-                          Category=Class,
-                          Alpha=0.,
-                          Label="") %>%
-                   ungroup()
+                  mutate(Node = ifelse(grepl("spp.",Taxon), Class,ifelse(is.na(CommonName),Taxon, gsub("-"," ",CommonName))),
+                         Category = Class,
+                         CategorySize = sum(total_trades),
+                         Seq = ifelse(grepl("spp.",Taxon),
+                                      Node,
+                                      paste(Class,Node, sep="-")),
+                         Depth = ifelse(grepl("spp.",Taxon),
+                                        1,
+                                        2)) %>%
+                  ungroup() %>% group_by(Node, Category, CategorySize, Seq, Depth) %>%
+                  summarise(Value = sum(total_trades)) %>%
+                  ungroup() %>%
+                  # Remove any categories than 0.01 percent since they won't appear anyway
+                  filter(CategorySize >= 0.0001 * sum(Value))
 
-# Construct Graph to Plot Circle Pack
-edges <- rbind(trades_by_class %>% select(Group, Node),
-               trades_top_100 %>% select(Group, Node))
+# Add Categories That Are Not Represented By A Row
+no_node_categories <- unique(sunburst_input$Category[!(sunburst_input$Category %in% sunburst_input$Node)])
+additional_nodes <- sunburst_input %>%
+                    filter(sunburst_input$Category %in% no_node_categories) %>%
+                    mutate(Node = Category,
+                           Seq = Category,
+                           Depth = 1,
+                           Value = 0) %>%
+                    unique()
 
-vertices <- rbind(data.frame(Node="Animalia",Weight=sum(trades_by_class$total_trades), Category=NA, Alpha=0,Label=""),
-                  trades_by_class %>% select(Node, Weight, Category, Alpha, Label),
-                  trades_top_100 %>% select(Node, Weight, Category, Alpha, Label))
+sunburst_input <- rbind(sunburst_input,
+                        additional_nodes) %>%
+                  arrange(Depth, desc(CategorySize), desc(Value))
 
-species_graph <- graph_from_data_frame(edges, vertices=vertices)
+# Set the colors for each node
+sunburst_palette <- get_color("palette")(length(unique(sunburst_input$Category)))
+names(sunburst_palette) <- unique(sunburst_input$Category)
+sunburst_cdomain <- sunburst_input$Node
+sunburst_crange <- sapply(1:nrow(sunburst_input), 
+                          function(i) { 
+                            node <- sunburst_input[[i,"Node"]]
+                            category <- sunburst_input[[i,"Category"]]
+                            color <- sunburst_palette[[category]]
+                            opacity <- ifelse(category == node, 0.5,0.8)
+                            alpha(color,opacity)
+                          })
 
-# Plot Circle Pack
-p_species <- ggraph(species_graph, layout='circlepack', weight='Weight') +
-             theme_lk() + 
-             theme(plot.title=element_blank(),
-                   axis.line.x=element_blank(),
-                   axis.title.x=element_blank(),
-                   axis.text.x=element_blank(),
-                   axis.ticks.x=element_blank(),
-                   axis.line.y=element_blank(),
-                   axis.title.y=element_blank(),
-                   axis.text.y=element_blank(),
-                   axis.ticks.y=element_blank()) + 
-             geom_node_circle(aes(fill=Category, alpha=Alpha), color=bg_color) +
-             geom_node_label(aes(fill=Category, label=Label, filter=Label!=""), color=bg_color, alpha=0.9) +
-             scale_fill_manual(values=c(get_color("palette")(length(unique(vertices$Category))-1)), guide="none") + 
-             scale_alpha_continuous(guide="none") +
-             scale_size_continuous(guide="none")
-             
+# Plot!
+sunburst_plot <- sunburst(sunburst_input %>% select(Seq, Value) ,
+                          colors = list(domain=sunburst_cdomain, range=sunburst_crange),
+                          count = TRUE,
+                          legend = FALSE,
+                          width = 600)
 
 ## ---- end-of-exp-species
+
+
