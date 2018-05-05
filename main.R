@@ -8,8 +8,12 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
+# To install rgdal, you may need to follow these instructions on Mac
+# https://stackoverflow.com/questions/34333624/trouble-installing-rgdal
+# (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
-              "htmlwidgets","streamgraph","waffle","sunburstR")
+              "htmlwidgets","streamgraph","waffle","sunburstR","rgdal",
+              "leaflet")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -437,5 +441,90 @@ sunburst_plot <- sunburst(sunburst_input %>% select(Seq, Value) ,
                           width = 600)
 
 ## ---- end-of-exp-species
+
+## ---- exp-imports
+
+# Shape Files Courtesy of 
+# http://thematicmapping.org/downloads/world_borders.php
+world_borders <- readOGR( dsn= paste0(getwd(),"/",specs_dir,"world_borders") , 
+                          layer="TM_WORLD_BORDERS_SIMPL-0.3", 
+                          verbose = FALSE)
+
+get_leaflet_plot <- function(isImport = TRUE) {
+  # Example Plot Courtesy of
+  # https://www.r-graph-gallery.com/183-choropleth-map-with-leaflet/
+  
+  map_unt <- ifelse(isImport,"Net Imports","Net Exports")
+  map_col <- ifelse(isImport,"red","purple")
+  leg_tit <- ifelse(isImport,"Wildlife Demand by Countries (Quantile)","Wildlife Supply by Countries (Quantile)")
+  
+  trades_by_import <- dataset %>%
+                      group_by(Importer) %>%
+                      summarise(imports = sum(Qty))
+  trades_by_export <- dataset %>%
+                      group_by(Exporter) %>%
+                      summarise(exports = sum(Qty))
+  trades_by_country <- trades_by_import %>%
+                       full_join(trades_by_export, by=c("Importer" = "Exporter")) %>%
+                       mutate(imports = ifelse(is.na(imports),0,imports),
+                              exports = ifelse(is.na(exports),0,exports),
+                              net_imports = ifelse(imports > exports, imports - exports, NA),
+                              net_exports = ifelse(exports > imports, exports - imports, NA))
+  trades_by_country["net_val"] <- ifelse(isImport, trades_by_country["net_imports"], trades_by_country["net_exports"])
+  
+  # Join trade information into world data
+  polygons <- world_borders
+  polygons@data <- polygons@data %>%
+                   left_join(trades_by_country, by=c("ISO2"="Importer"))
+  
+  # Remove those countries with no wildlife trades
+  polygons <- polygons[!is.na(polygons@data$net_val),]
+  
+  # Create leaflet arguments
+  leaflet_ptOptions <- providerTileOptions(minZoom = 1)
+  leaflet_palette <- colorQuantile(c(get_color(map_col,0.1),get_color(map_col)),
+                                   polygons$net_val,
+                                   na.color = "#ffffffff")
+  leaflet_highlightOptions <- highlightOptions(
+                                fillOpacity = 0.7,
+                                fillColor = sec_color,
+                                bringToFront = TRUE)
+  leaflet_labels <-  sprintf(
+                        "<span class='hl'>%s</span><br/>%s %s",
+                        polygons@data$NAME, comma(round(polygons$net_val)), map_unt) %>% 
+                      lapply(htmltools::HTML)
+  leaflet_labelOptions <- labelOptions(
+                            style = list("font-family" = def_font,
+                                         "font-weight" = "normal", 
+                                         "border-width" = "thin",
+                                         "border-color" = ltxt_color),
+                            textsize = "1em",
+                            direction = "auto")
+  
+  # Create Leaflet plot
+  leaflet(polygons, width = "100%") %>%
+    addProviderTiles("CartoDB.Positron",options = leaflet_ptOptions) %>%
+    setMaxBounds(-200, 100,200,-100) %>%
+    setView(0, 30, 1) %>%
+    addPolygons(stroke = FALSE, 
+                fillOpacity = 0.8, 
+                fillColor = ~leaflet_palette(net_val),
+                highlight = leaflet_highlightOptions,
+                label = leaflet_labels,
+                labelOptions = leaflet_labelOptions) %>%
+    addLegend(pal = leaflet_palette, 
+              values = ~net_val, 
+              opacity = 0.7, 
+              title = leg_tit,
+              position = "bottomleft")
+}
+
+leaflet_import_plot <- get_leaflet_plot()
+
+## ---- end-of-exp-imports
+
+## ---- exp-exports
+leaflet_export_plot <- get_leaflet_plot(FALSE)
+## ---- end-of-exp-exports
 
 

@@ -325,6 +325,18 @@ htmlwidgets::onRender(
 
 ```
 
+```{r}
+<<exp-imports>>
+
+leaflet_import_plot
+```
+
+```{r}
+<<exp-exports>>
+
+leaflet_export_plot
+```
+
 ## Tracing Supply and Demand
 
 ### The Algorithm
