@@ -13,7 +13,7 @@ options(stringsAsFactors = FALSE)
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
               "htmlwidgets","streamgraph","waffle","sunburstR","rgdal",
-              "leaflet")
+              "leaflet","colorspace")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -484,22 +484,29 @@ get_leaflet_plot <- function(isImport = TRUE) {
   leaflet_ptOptions <- providerTileOptions(minZoom = 1)
   leaflet_palette <- colorQuantile(c(get_color(map_col,0.1),get_color(map_col)),
                                    polygons$net_val,
+                                   n = 5, 
                                    na.color = "#ffffffff")
   leaflet_highlightOptions <- highlightOptions(
-                                fillOpacity = 0.7,
-                                fillColor = sec_color,
+                                fillOpacity = 0.5,
                                 bringToFront = TRUE)
   leaflet_labels <-  sprintf(
-                        "<span class='hl'>%s</span><br/>%s %s",
+                        "<span style='font-family: var(--heading-family); font-size: 1.2em'>%s</span><br/>%s %s",
                         polygons@data$NAME, comma(round(polygons$net_val)), map_unt) %>% 
                       lapply(htmltools::HTML)
-  leaflet_labelOptions <- labelOptions(
-                            style = list("font-family" = def_font,
-                                         "font-weight" = "normal", 
-                                         "border-width" = "thin",
-                                         "border-color" = ltxt_color),
-                            textsize = "1em",
-                            direction = "auto")
+  # Change background color and foreground color based on fill of the hovered area
+  leaflet_labelOptions <- lapply(leaflet_palette(polygons$net_val), function (c){ 
+                            luminosity <- as(hex2RGB(c), "polarLUV")@coords[1]
+                            fg_color <- ifelse(luminosity <= 70, bg_color, txt_color)
+                            labelOptions(
+                              style = list("background-color" = c,
+                                           "font-family" = def_font,
+                                           "font-weight" = "normal", 
+                                           "color" = fg_color,
+                                           "border-width" = "thin",
+                                           "border-color" = fg_color),
+                              textsize = "1em",
+                              direction = "auto")
+                          })
   
   # Create Leaflet plot
   leaflet(polygons, width = "100%") %>%
