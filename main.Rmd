@@ -61,6 +61,8 @@ As can be seen, some pre-processing would be required before our analysis can pr
 
 ## Pre-Processing
 
+To skip the pre-processing, please click <a href="#exploration">here</a>.
+
 ### Restricting the Species
 
 #### Animals Only
