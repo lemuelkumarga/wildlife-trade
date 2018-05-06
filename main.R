@@ -518,14 +518,14 @@ get_leaflet_plot <- function(isImport = TRUE) {
   
   # Markers
   marker_data <- polygons[polygons@data$rank <= 5,]
-  marker_icons <- function (l) {
-                    awesomeIcons(
-                      markerColor = 'gray',
-                      text = sapply(l, function(x) { 
-                        sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", bg_color,toOrdinal(x)) }),
-                      fontFamily = def_font
-                    )
-                  }
+  marker_icons <- awesomeIcons(
+                    # To prevent bootstrap 3.3.7 from loading and removing cosmo theme css, metadata for mobile
+                    library = 'fa',
+                    markerColor = 'gray',
+                    text = sapply(marker_data@data$rank, function(x) { 
+                      sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", bg_color, toOrdinal(x)) }),
+                    fontFamily = def_font
+                  )
   marker_options <- markerOptions(opacity = 0.9)
   marker_popup <- sprintf(
                     paste0("<span style='font-family: var(--font-family); color: %s'>[%s] <span style='font-family: var(--heading-family); color: %s; font-size: 1.2em'>%s</span><br/>",
@@ -556,7 +556,7 @@ get_leaflet_plot <- function(isImport = TRUE) {
               position = "bottomleft") %>%
     addAwesomeMarkers(~LON, ~LAT,
                       data = marker_data,
-                      icon = ~marker_icons(rank),
+                      icon = marker_icons,
                       options = marker_options,
                       popup = marker_popup)
 }
