@@ -13,7 +13,7 @@ options(stringsAsFactors = FALSE)
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
               "htmlwidgets","streamgraph","waffle","sunburstR","rgdal",
-              "leaflet","colorspace")
+              "leaflet","colorspace","toOrdinal")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -475,10 +475,12 @@ get_leaflet_plot <- function(isImport = TRUE) {
   # Join trade information into world data
   polygons <- world_borders
   polygons@data <- polygons@data %>%
-                   left_join(trades_by_country, by=c("ISO2"="Importer"))
+                   left_join(trades_by_country, by=c("ISO2"="Importer")) %>%
+                   mutate(rank = rank(desc(net_val),ties="first"))
   
   # Remove those countries with no wildlife trades
   polygons <- polygons[!is.na(polygons@data$net_val),]
+  
   
   # Create leaflet arguments
   leaflet_ptOptions <- providerTileOptions(minZoom = 1)
@@ -490,8 +492,14 @@ get_leaflet_plot <- function(isImport = TRUE) {
                                 fillOpacity = 0.5,
                                 bringToFront = TRUE)
   leaflet_labels <-  sprintf(
-                        "<span style='font-family: var(--heading-family); font-size: 1.2em'>%s</span><br/>%s %s",
-                        polygons@data$NAME, comma(round(polygons$net_val)), map_unt) %>% 
+                        paste0("<span style='font-family: var(--heading-family); font-size: 1.2em'>%s</span><br/>",
+                               "Ranked <span style='font-size:1.2em'>%s</span> (out of %s)<br/>",
+                               "%s %s"),
+                        polygons@data$NAME, 
+                        sapply(polygons@data$rank, toOrdinal), 
+                        length(polygons@data$rank),
+                        comma(round(polygons$net_val)), 
+                        map_unt) %>% 
                       lapply(htmltools::HTML)
   # Change background color and foreground color based on fill of the hovered area
   leaflet_labelOptions <- lapply(leaflet_palette(polygons$net_val), function (c){ 
@@ -508,6 +516,28 @@ get_leaflet_plot <- function(isImport = TRUE) {
                               direction = "auto")
                           })
   
+  # Markers
+  marker_data <- polygons[polygons@data$rank <= 5,]
+  marker_icons <- function (l) {
+                    awesomeIcons(
+                      markerColor = 'gray',
+                      text = sapply(l, function(x) { 
+                        sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", bg_color,toOrdinal(x)) }),
+                      fontFamily = def_font
+                    )
+                  }
+  marker_options <- markerOptions(opacity = 0.9)
+  marker_popup <- sprintf(
+                    paste0("<span style='font-family: var(--font-family); color: %s'>[%s] <span style='font-family: var(--heading-family); color: %s; font-size: 1.2em'>%s</span><br/>",
+                           "%s %s</span>"),
+                    txt_color,
+                    sapply(marker_data@data$rank, toOrdinal), 
+                    get_color(map_col),
+                    marker_data@data$NAME, 
+                    comma(round(marker_data$net_val)), 
+                    map_unt) %>% 
+                    lapply(htmltools::HTML)
+  
   # Create Leaflet plot
   leaflet(polygons, width = "100%") %>%
     addProviderTiles("CartoDB.Positron",options = leaflet_ptOptions) %>%
@@ -523,7 +553,12 @@ get_leaflet_plot <- function(isImport = TRUE) {
               values = ~net_val, 
               opacity = 0.7, 
               title = leg_tit,
-              position = "bottomleft")
+              position = "bottomleft") %>%
+    addAwesomeMarkers(~LON, ~LAT,
+                      data = marker_data,
+                      icon = ~marker_icons(rank),
+                      options = marker_options,
+                      popup = marker_popup)
 }
 
 leaflet_import_plot <- get_leaflet_plot()
