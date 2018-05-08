@@ -8,11 +8,12 @@ source("shared/defaults.R")
 source("shared/helper.R")
 
 options(stringsAsFactors = FALSE)
+# To install streamgraph, use devtools::install_github("hrbrmstr/streamgraph")
 # To install rgdal, you may need to follow these instructions on Mac
 # https://stackoverflow.com/questions/34333624/trouble-installing-rgdal
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
-              "htmlwidgets","streamgraph","waffle","sunburstR","rgdal",
+              "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR","rgdal",
               "leaflet","colorspace","toOrdinal")
 load_or_install.packages(packages)
 
@@ -320,8 +321,17 @@ trades_by_time <- dataset %>%
                                             ifelse(IUCNStatus == "EN", "Endangered",
                                                    "Vulnerable"))) %>%
                   group_by(Year,IUCNLabel) %>%
-                  summarise(total_trades = round(sum(Qty)))
-                  
+                  summarise(total_trades = round(sum(Qty))) %>%
+                  ungroup()
+
+# Add Percentage Increment
+trades_by_time <- trades_by_time %>%
+                  left_join(trades_by_time %>% 
+                              mutate(NextYear = Year + 1) %>%
+                              select(NextYear, IUCNLabel, prev_trades = total_trades), 
+                            by=c("Year" = "NextYear", "IUCNLabel" = "IUCNLabel")) %>%
+                  mutate(pct_inc = (total_trades - prev_trades) / prev_trades)
+
 trades_by_time$IUCNLabel <- factor(trades_by_time$IUCNLabel, 
                                     levels=c("Vulnerable","Endangered","Critical"),
                                     ordered = TRUE)
@@ -330,10 +340,64 @@ streamgraph_plot <- suppressWarnings(
                       streamgraph(trades_by_time, key="IUCNLabel", value="total_trades", date="Year", offset="zero",
                                                    width=750, height=300,left=70) %>%
                       sg_colors(axis_color = ltxt_color, tooltip_color = ltxt_color) %>%
+                      # Set ticks to once every two years
                       sg_axis_x(2) %>%
                       sg_fill_manual(c(get_color("red"), get_color("red", 0.6), get_color("red", 0.3)))
+                      
                     )
 
+# Add annotation for interesting points
+for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
+
+  if (iucn_lbl == "Critical") {
+    iucn_filter <- c("Vulnerable","Endangered","Critical")
+  } else if (iucn_lbl == "Endangered") {
+    iucn_filter <- c("Vulnerable","Endangered")
+  } else {
+    iucn_filter <- c("Vulnerable")
+  }
+  
+  x <- 2011:2015
+  
+  # Positioning of Labels
+  x_str <- function (yy) { sprintf("%s-%s-01", yy - 1,
+                                   ifelse(yy == 2011,"07",
+                                   ifelse(yy == 2015, "06","11"))) }
+  
+  y_shift <- ifelse(iucn_lbl == "Endangered", -350000, -500000)
+  y <- function (yy) { (trades_by_time %>%
+                          filter(IUCNLabel %in% iucn_filter & Year == yy) %>%
+                          summarise(total_trades = sum(total_trades)))$total_trades + y_shift }
+  
+  # Labels for 2011 and 2012-2015
+  label_color <- ifelse(iucn_lbl == "Vulnerable", txt_color, bg_color)
+  label_abs <- function (yy) {
+                  val <- (trades_by_time %>% 
+                          filter(Year == yy & IUCNLabel == iucn_lbl))$total_trades
+                  sprintf("%.2f mil",val / 1000000)
+                }
+  label_pct <- function(yy) { 
+                  val <- (trades_by_time %>% 
+                          filter(Year == yy & IUCNLabel == iucn_lbl))$pct_inc
+                  sprintf("%s%.0f%%", ifelse(val > 0, "+", "-"),abs(round(val * 100)))
+               }
+  
+  # Append Labels!
+  pwalk(list(x),
+        function(yy) {
+          if (yy == 2011) { label <- label_abs(yy) } else { label <- label_pct(yy) }
+          streamgraph_plot <<- streamgraph_plot %>%
+                               sg_annotate(label, x_str(yy), y(yy), 
+                                           color=label_color, size=10)
+        })
+}
+
+# Add annotation for each section
+streamgraph_plot <- streamgraph_plot %>%
+                    sg_annotate("Critical", "2014-01-01",2500000, color = fade_color(get_color("red"),0.7)) %>%
+                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
+                    sg_annotate("Vulnerable", "2013-07-01",250000, color = fade_color(get_color("red", 0.3),0.7))
+        
 ## ---- end-of-exp-time
 
 ## ---- exp-purpose

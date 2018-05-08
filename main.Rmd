@@ -297,17 +297,47 @@ post_clean_str()
 
 ## Exploration
 
+#### Evolution Across Time
+
+The interactive chart below shows how wildlife trade evolves across time:
+
 ```{r}
 <<exp-time>>
 
 streamgraph_plot
 ```
 
+Based on the above, we know that as of 2011, species whose statuses are <span class="hl red-text">Critical</span> account for <span class="hl red-text">`r sprintf("%.0f%%",(trades_by_time %>% filter(Year == 2011) %>% mutate(pct = total_trades/sum(total_trades)) %>% filter(IUCNLabel == "Critical"))$pct * 100)`</span> of the total trades. This is disconcerting as the species closest to extinction are the ones being captured the most.
+
+```{r}
+pander(
+  trades_by_time %>%
+    ungroup() %>%
+    filter(Year >= 2012) %>%
+    group_by(IUCNLabel) %>%
+    summarise(MeanTradeGrowth = geoMean(1 + pct_inc) - 1) %>%
+    mutate(MeanTradeGrowth = sprintf("%s%.1f%%",ifelse(MeanTradeGrowth > 0,"+","-"),abs(MeanTradeGrowth * 100)))
+,caption="Year on Year Trade Growth by Endangered Status")
+
+```
+
+However, when comparing the year-on-year trade growth on average, we see that since 2012, the number of critical-species trading has fallen by an average of <span class="hl red-text">6.1%</span>. A majority of this reduction is due to the fall of trading in the year of 2015. It remains to be seen whether this decrease is a result of improved conservation or due to a lag in reporting.
+
+#### Reasons for Trading
+
+The waffle chart below highlights the purposes behind endangered wildlife trade:
+
 ```{r, fig.asp=0.35}
 <<exp-purpose>>
 
 waffle_plot
 ```
+
+Shockingly, trading due to <span class="hl red-text">commercial</span> reasons account for over <span class="hl red-text">95%</span> of all trades! In other words, for every 1 animal traded for species <span class="hl green-text">conservation</span>, another 193 trades are being utilized for profit-making purposes. From the data, the conservation movement is having difficulty catching up with excess capitalism.
+
+#### Most Traded Species
+
+The sunburst plot below allows us to find out which animal class, and which species within each class are traded the most:
 
 ```{r}
 <<exp-species>>
@@ -327,17 +357,33 @@ htmlwidgets::onRender(
 
 ```
 
+By scrolling through the chart above, the <span class="hl yellow-text">Anthozoa</span> class account for close to 70% of the total trades. Some examples of species belonging to this class are soft and hard corals. The well-publicized <span class="hl blue-text">African Elephant</span>, belonging to the <span class="hl blue-text">Mammalia</span> class, interestingly account for less than 0.2% of the total trades.
+
+#### Demand Hotspots
+
+Using export and import data, we can estimate the consumption of wildlife in each country. If a country imports more than it exports, then it is reasonable to assume that the difference is consumed locally.
+
 ```{r}
 <<exp-imports>>
 
 leaflet_import_plot
 ```
 
+By utilizing net imports as a proxy, we are able to determine countries with the highest wildlife demand. Surprisingly, <span class="hl red-text">China</span> is ranked fourth, while the <span class="hl red-text">United States</span> has around 5 times more demand than the second-ranked country, <span class="hl red-text">Japan</span>! <span class="hl red-text">Israel</span> and <span class="hl red-text">South Korea</span> make up the top 5.
+
+It remains to be seen whether the huge gap between United States and the other top 4 countries is due to actual trading or higher diligence in reporting. Nevertheless, the map above has surfaced countries (such as Israel and South Korea) that are often overlooked and could be worth focusing more on. 
+
+#### Supply Origins
+
+Using the opposite logic as demand, if a country exports more than it imports, then we assume that the difference is captured within the country.
+
 ```{r}
 <<exp-exports>>
 
 leaflet_export_plot
 ```
+
+Using net exports as a proxy, we are able to determine the distribution of supply across the globe. As expected, Southeast Asia and Africa are two areas where the majority of wildlifes are coming from. In particular, <span class="hl purple-text">Indonesia</span> exports the most wildlife, over 2.5 times more than the second-ranked <span class="hl purple-text">Fiji</span>. <span class="hl purple-text">Morocco</span>, the highest-ranked nation in Africa, is 9th.
 
 ## Tracing Supply and Demand
 
