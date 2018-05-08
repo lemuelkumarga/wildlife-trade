@@ -651,6 +651,8 @@ edges <- dataset %>%
          group_by(v1,v2) %>%
          summarise(total_trades = sum(Qty))
 
+vertices$VALUE <- sapply(vertices$index, function(i) { sum(edges[edges$v1 == i | edges$v2 == i,]$total_trades) })
+
 # Huge thanks to R Graph Gallery for Template
 # https://www.r-graph-gallery.com/hierarchical-edge-bundling/
 
@@ -659,7 +661,22 @@ edges <- dataset %>%
 hierarchy <- rbind(vertices %>% mutate(parent="root") %>% select(parent,child=REGION) %>% unique(),
                    vertices %>% select(parent=REGION,child=SUBREGION) %>% unique(),
                    vertices %>% select(parent=SUBREGION, child=index))
-nodes <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child))) ) 
+
+nodes <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child)))) %>%
+         left_join(vertices %>% select(index, label=NAME, group=REGION, value=VALUE), by=c("name"="index"))
+
+# Create Angle For Text Label
+leaves <- which(!is.na(match(nodes$name, vertices$index)))
+nodes$leaf_id <- NA
+nodes$leaf_id[leaves] <- 1:length(leaves)
+nodes$angle <- 90 - 360 * nodes$leaf_id / length(leaves)
+
+# If I am on the left part of the plot, my labels have currently an angle < -90
+nodes$hjust<-ifelse(nodes$angle < -90, 1, 0)
+
+# flip angle BY to make them readable
+nodes$angle<-ifelse(nodes$angle < -90, nodes$angle+180, nodes$angle)
+
 edge_bundle_graph <- graph_from_data_frame(hierarchy, vertices = nodes)
 
 # Color palette for edges and vertices
@@ -667,7 +684,6 @@ color_dictionary <- get_color("palette")(length(unique(vertices$REGION)))
 names(color_dictionary) <- unique(vertices$REGION)
 
 # Edge Configuration
-n_points <- 100
 from_nodes <- match(edges$v1, nodes$name)
 to_nodes <- match(edges$v2, nodes$name)
 edge_weights <- edges$total_trades
@@ -686,23 +702,6 @@ edge_colors <- sapply(1:nrow(edges),
                           return("NONE")
                         }
                 })
-for (i in 1:nrow(edges)) {
-  v1 <- edges[[i,"v1"]]
-  v2 <- edges[[i,"v2"]]
-  
-  # Set up colors
-  region_v1 <- (vertices %>% filter(index == v1))$REGION
-  region_v2 <- (vertices %>% filter(index == v2))$REGION
-  # If same region, choose the region color, else set neutral color
-  if (region_v1 == region_v2) {
-    edge_colors <- c(edge_colors, rep(color_dictionary[[region_v1]],n_points))
-  } else {
-    edge_colors <- c(edge_colors, rep(fade_color(txt_color,0.5), n_points))
-  }
-  
-  # Set up weights
-  edge_weights <- c(edge_weights, rep(edges[[i,"total_trades"]],n_points))
-}
 
 edge_bundle_plot <- ggraph(edge_bundle_graph, layout="dendrogram", circular=TRUE) +
                     theme_void() +
@@ -713,7 +712,8 @@ edge_bundle_plot <- ggraph(edge_bundle_graph, layout="dendrogram", circular=TRUE
                                      aes(alpha=weights, colour=colors),
                                      tension = 0.8) +
                     scale_edge_color_manual(values=c(color_dictionary, "NONE"=fade_color(ltxt_color,0.5))) + 
-  geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group),   size=3) +
+                    geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group, size=value), alpha=0.8) +
+                    geom_node_text(aes(filter = leaf, x = x*1.15, y=y*1.15,label=name, angle = angle, hjust=hjust, colour=group), size=2, alpha=1) +
                     scale_color_manual(values=color_dictionary)
   
 
