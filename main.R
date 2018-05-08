@@ -635,11 +635,12 @@ leaflet_export_plot <- get_leaflet_plot(FALSE)
 
 ## ---- model-graphs
 
-
 vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
             sort() %>%
             { data.frame(index=.)} %>%
-            inner_join(world_borders@data, by=c("index"="ISO2"))
+            inner_join(world_borders@data, by=c("index"="ISO2")) %>%
+            mutate(REGION = paste0("REGION-",REGION),
+                   SUBREGION = paste0("SUBREGION-",SUBREGION))
 
 edges <- dataset %>%
          filter(Importer %in% vertices$index & 
@@ -650,23 +651,77 @@ edges <- dataset %>%
          group_by(v1,v2) %>%
          summarise(total_trades = sum(Qty))
 
-hierarchy <- rbind(vertices %>% mutate(parent="root", child=paste0("region-",REGION)) %>% select(parent,child) %>% unique(),
-                   vertices %>% mutate(parent=paste0("region-",REGION), child=paste0("subregion-",SUBREGION)) %>% select(parent,child) %>% unique(),
-                   vertices %>% mutate(parent=paste0("subregion-",SUBREGION), child=index) %>% select(parent, child=index))
-vertices <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child))) ) 
+# Huge thanks to R Graph Gallery for Template
+# https://www.r-graph-gallery.com/hierarchical-edge-bundling/
 
+# Create Inputs For The Model
+# Graph Creation
+hierarchy <- rbind(vertices %>% mutate(parent="root") %>% select(parent,child=REGION) %>% unique(),
+                   vertices %>% select(parent=REGION,child=SUBREGION) %>% unique(),
+                   vertices %>% select(parent=SUBREGION, child=index))
+nodes <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child))) ) 
+edge_bundle_graph <- graph_from_data_frame(hierarchy, vertices = nodes)
 
-graph <- graph_from_data_frame(hierarchy, vertices = vertices)
-plot(graph, vertex.label="", edge.arrow.size=0, vertex.size=2)
-n <- 100
-from <- match(edges$v1, vertices$name)
-to <- match(edges$v2, vertices$name)
-weights <- c()
-for (i in edges$total_trades) {
-  weights <- c(weights, rep(i,n))
+# Color palette for edges and vertices
+color_dictionary <- get_color("palette")(length(unique(vertices$REGION)))
+names(color_dictionary) <- unique(vertices$REGION)
+
+# Edge Configuration
+n_points <- 100
+from_nodes <- match(edges$v1, nodes$name)
+to_nodes <- match(edges$v2, nodes$name)
+edge_weights <- edges$total_trades
+edge_colors <- sapply(1:nrow(edges), 
+                      function(i) {
+                        v1 <- edges[[i,"v1"]]
+                        v2 <- edges[[i,"v2"]]
+                        
+                        # Set up colors
+                        region_v1 <- (vertices %>% filter(index == v1))$REGION
+                        region_v2 <- (vertices %>% filter(index == v2))$REGION
+                        # If same region, choose the region color, else set neutral color
+                        if (region_v1 == region_v2) {
+                          return(region_v1)
+                        } else {
+                          return("NONE")
+                        }
+                })
+for (i in 1:nrow(edges)) {
+  v1 <- edges[[i,"v1"]]
+  v2 <- edges[[i,"v2"]]
+  
+  # Set up colors
+  region_v1 <- (vertices %>% filter(index == v1))$REGION
+  region_v2 <- (vertices %>% filter(index == v2))$REGION
+  # If same region, choose the region color, else set neutral color
+  if (region_v1 == region_v2) {
+    edge_colors <- c(edge_colors, rep(color_dictionary[[region_v1]],n_points))
+  } else {
+    edge_colors <- c(edge_colors, rep(fade_color(txt_color,0.5), n_points))
+  }
+  
+  # Set up weights
+  edge_weights <- c(edge_weights, rep(edges[[i,"total_trades"]],n_points))
 }
+
+edge_bundle_plot <- ggraph(edge_bundle_graph, layout="dendrogram", circular=TRUE) +
+                    theme_void() +
+                    geom_edge_diagonal(alpha=0.05) +
+                    geom_conn_bundle(data = get_con(from = from_nodes, to = to_nodes, 
+                                                    weights=edge_weights,
+                                                    colors=edge_colors), 
+                                     aes(alpha=weights, colour=colors),
+                                     tension = 0.8) +
+                    scale_edge_color_manual(values=c(color_dictionary, "NONE"=fade_color(ltxt_color,0.5))) + 
+  geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group),   size=3) +
+                    scale_color_manual(values=color_dictionary)
+  
+
+plot(graph, vertex.label="", edge.arrow.size=0, vertex.size=2)
+
+
 ggraph(graph, layout="dendrogram", circular=TRUE) +
-  geom_conn_bundle(data = get_con(from = from, to = to), alpha=weights/max(weights) , tension = 0.8)
+  
 
 input <- edges %>%
          inner_join(vertices %>% select(index, v1lon = lon, v1lat = lat), by=c("v1"="index")) %>%
