@@ -14,7 +14,7 @@ options(stringsAsFactors = FALSE)
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
               "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR","rgdal",
-              "leaflet","colorspace","toOrdinal")
+              "leaflet","colorspace","toOrdinal","igraph","ggraph")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -632,5 +632,83 @@ leaflet_import_plot <- get_leaflet_plot()
 ## ---- exp-exports
 leaflet_export_plot <- get_leaflet_plot(FALSE)
 ## ---- end-of-exp-exports
+
+## ---- model-graphs
+
+
+vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
+            sort() %>%
+            { data.frame(index=.)} %>%
+            inner_join(world_borders@data, by=c("index"="ISO2"))
+
+edges <- dataset %>%
+         filter(Importer %in% vertices$index & 
+                  Exporter %in% vertices$index &
+                  Importer != Exporter) %>%
+         mutate(v1 = ifelse(Importer < Exporter, Importer, Exporter),
+                v2 = ifelse(Importer < Exporter, Exporter, Importer)) %>%
+         group_by(v1,v2) %>%
+         summarise(total_trades = sum(Qty))
+
+hierarchy <- rbind(vertices %>% mutate(parent="root", child=paste0("region-",REGION)) %>% select(parent,child) %>% unique(),
+                   vertices %>% mutate(parent=paste0("region-",REGION), child=paste0("subregion-",SUBREGION)) %>% select(parent,child) %>% unique(),
+                   vertices %>% mutate(parent=paste0("subregion-",SUBREGION), child=index) %>% select(parent, child=index))
+vertices <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child))) ) 
+
+
+graph <- graph_from_data_frame(hierarchy, vertices = vertices)
+plot(graph, vertex.label="", edge.arrow.size=0, vertex.size=2)
+n <- 100
+from <- match(edges$v1, vertices$name)
+to <- match(edges$v2, vertices$name)
+weights <- c()
+for (i in edges$total_trades) {
+  weights <- c(weights, rep(i,n))
+}
+ggraph(graph, layout="dendrogram", circular=TRUE) +
+  geom_conn_bundle(data = get_con(from = from, to = to), alpha=weights/max(weights) , tension = 0.8)
+
+input <- edges %>%
+         inner_join(vertices %>% select(index, v1lon = lon, v1lat = lat), by=c("v1"="index")) %>%
+         inner_join(vertices %>% select(index, v2lon = lon, v2lat = lat), by=c("v2"="index"))
+
+l_plot <- leaflet(input, width = "100%") %>%
+          addProviderTiles("CartoDB.Positron") %>%
+          setMaxBounds(-200, 100,200,-100) %>%
+          setView(0, 30, 1)
+
+pwalk(
+  list(input$v1lon, input$v2lon, input$v1lat, input$v2lat),
+  function (v1lon, v2lon, v1lat, v2lat) {
+    l_plot <<- l_plot %>%
+               addPolylines(lng=c(v1lon, v2lon), lat=c(v1lat, v2lat))
+  }
+)
+
+# Kudos to R Graph Gallry for plotting 
+# https://www.r-graph-gallery.com/how-to-draw-connecting-routes-on-map-with-r-and-great-circles/
+map_network_plot <- 
+  function() {
+    map('world',
+        mar=c(0,5,0,5),resolution=0.5,
+        bg=bg_color, col=fade_color(txt_color,0.2), fill=TRUE, 
+        border=0, lwd=0.0001)
+    # Draw Points
+    points(x=vertices$lon, y=vertices$lat, 
+           col=get_color(1),
+           cex=0.5,
+           pch=20)
+    # Draw Edges
+    for (i in nrow(edges)) {
+      v1 <- vertices %>% filter(index == edges[[i,"v1"]])
+      v2 <- vertices %>% filter(index == edges[[i,"v2"]])
+      lines(greatCircle(c(v1$lon, v1$lat),c(v2$lon, v2$lat), n=200), lwd=2)
+    }
+  
+  
+  }
+
+
+## ---- end-of-model-graphs
 
 

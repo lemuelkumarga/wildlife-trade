@@ -385,11 +385,90 @@ leaflet_export_plot
 
 Using net exports as a proxy, we are able to determine the distribution of supply across the globe. As expected, Southeast Asia and Africa are two areas where the majority of wildlifes are coming from. In particular, <span class="hl purple-text">Indonesia</span> exports the most wildlife, over 2.5 times more than the second-ranked <span class="hl purple-text">Fiji</span>. <span class="hl purple-text">Morocco</span>, the highest-ranked nation in Africa, is 9th.
 
-## Tracing Supply and Demand
+## Identifying the Major Players
 
-### The Algorithm
+For the purposes of this analysis, the major players in the endangered wildlife trade are countries which take part extensively as either suppliers, consumers or intermediaries. In this section, we will aim to:
 
-### Following the Demand
+1. surface players that were otherwise overlooked, and
+2. rank each player according to their wildlife trading activity.
+
+[1] will allow us to have a more macro perspective on the impact of each country towards endangered wildlife, while [2] will help us prioritize which countries to focus on given the limited conservation resources.
+
+### Choosing the Algorithm
+
+The most intuitive way to identify major players is by <span class="hl">their net imports/exports</span>. By ranking these metrics according to size, we can potentially find the countries supplying and consuming endangered wildlife goods. However, one potential pitfall of such an approach is that the intermediary players get overlooked. Consider the following scenario:
+
+```{r}
+grViz(paste0("
+  digraph expInt {
+
+    # Default Specs
+    graph [compound = true, nodesep = .5, ranksep = .25]
+    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled, shape = oval]
+    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    
+    Country_A [label = 'Country\nA', fillcolor = '",get_color(1),"']
+    Country_B [label = 'Country\nB', fillcolor = '",get_color(2),"']
+    Country_C [label = 'Country\nC', fillcolor = '",get_color(3),"']
+    { rank = same; Country_A, Country_B, Country_C }
+
+    Country_A -> Country_B [ label='100' ]
+    Country_B -> Country_C [ label='99' ]
+    
+  }
+"), height=50)
+```
+
+In such a scenario, <span class="color-1-text">A</span> will have a net export of 100, B a net import of 1 and <span class="color-3-text">C</span> a net import of 99. Using the net import/export approach, <span class="color-2-text">B</span> is the least important player. However, in actuality, <span class="color-2-text">B</span> should be the most pivotal country as it is involved in all 199 trades. Hence, a better approach is required.
+
+One way to tackle the issue above is to instead use each country's <span class="hl">gross imports + exports</span> as a measure of involvement. This approach would work well in the above case, as <span class="color-2-text">B</span> would rightly be identified as the most important player. However, one weakness of such a method would be the huge assumption that the absolute numbers are extremely accurate. In truth, this may not be the case, due to the following reasons:
+
+1. There may be reporting errors recorded in the CITES database, and
+2. There could be conversion errors incurred in the <a href="#pre-processing">Pre-Processing</a> stage.
+
+Moreover, consider the following scenario: 
+
+```{r}
+grViz(paste0("
+  digraph expInt {
+
+    # Default Specs
+    graph [compound = true, nodesep = .5, ranksep = .25]
+    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled, shape = oval]
+    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    
+    Country_A [label = 'Country\nA', fillcolor = '",get_color(1),"']
+    Country_B [label = 'Country\nB', fillcolor = '",get_color(2),"']
+    Country_C [label = 'Country\nC', fillcolor = '",get_color(3),"']
+    Country_D [label = 'Country\nD', fillcolor = '",get_color(4),"']
+    Country_E [label = 'Country\nE', fillcolor = '",get_color(5),"']
+
+    Country_A -> Country_B [ label='  100' ]
+    Country_B -> Country_C [ label='  99' ]
+    Country_A -> Country_D [ label='  200' ]
+    Country_D -> Country_E [ label='  99' ]
+  }
+"), height=200)
+```
+
+Using the gross imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
+
+Fortunately, we are able to resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank>Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
+
+i. the number of links pointing to the website, and 
+ii. who is pointing to the website.
+
+This algorithm can be leveraged for our analysis, which is used to assess the involvement of a country through:
+
+i. the number of trades that country is involved in, and
+ii. which other nations that country is involved with.
+
+### Modeling Wildlife Trade
+
+To 
+
+
+
 
 ### Finding the Supply
 
