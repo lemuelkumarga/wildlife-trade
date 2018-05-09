@@ -1,7 +1,8 @@
 
 # Initialization ----
 ## ---- init
-
+# Disable scientific notation
+options(scipen=999)
 # Load default settings for R Markdown -- see file for more details
 source("shared/defaults.R")
 # Load some helper functions
@@ -14,7 +15,7 @@ options(stringsAsFactors = FALSE)
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
               "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR","rgdal",
-              "leaflet","colorspace","toOrdinal","igraph","ggraph")
+              "leaflet","colorspace","toOrdinal","igraph","ggraph","grDevices")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -640,7 +641,8 @@ vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
             { data.frame(index=.)} %>%
             inner_join(world_borders@data, by=c("index"="ISO2")) %>%
             mutate(REGION = paste0("REGION-",REGION),
-                   SUBREGION = paste0("SUBREGION-",SUBREGION))
+                   SUBREGION = paste0("SUBREGION-",SUBREGION)) %>%
+            arrange(REGION, SUBREGION)
 
 edges <- dataset %>%
          filter(Importer %in% vertices$index & 
@@ -653,117 +655,98 @@ edges <- dataset %>%
 
 vertices$VALUE <- sapply(vertices$index, function(i) { sum(edges[edges$v1 == i | edges$v2 == i,]$total_trades) })
 
+# Filter Top X Countries If Necessary
+input_vertices <- vertices
+input_edges <- edges %>% filter(v1 %in% input_vertices$index & v2 %in% input_vertices$index)
+
 # Huge thanks to R Graph Gallery for Template
 # https://www.r-graph-gallery.com/hierarchical-edge-bundling/
 
 # Create Inputs For The Model
+# Color palette for edges and input_vertices
+color_dictionary <- get_color("palette")(length(unique(input_vertices$REGION)))
+names(color_dictionary) <- unique(input_vertices$REGION)
+n_points <- 100
+
 # Graph Creation
-hierarchy <- rbind(vertices %>% mutate(parent="root") %>% select(parent,child=REGION) %>% unique(),
-                   vertices %>% select(parent=REGION,child=SUBREGION) %>% unique(),
-                   vertices %>% select(parent=SUBREGION, child=index))
+hierarchy <- rbind(input_vertices %>% mutate(parent="root") %>% select(parent,child=REGION) %>% unique(),
+                   input_vertices %>% select(parent=REGION,child=SUBREGION) %>% unique(),
+                   input_vertices %>% select(parent=SUBREGION, child=index))
 
+# Node Specifications
 nodes <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child)))) %>%
-         left_join(vertices %>% select(index, label=NAME, group=REGION, value=VALUE), by=c("name"="index"))
+         left_join(input_vertices %>% select(index, label=NAME, region=REGION, value=VALUE), by=c("name"="index")) %>%
+         mutate(ranking=rank(value,ties.method="first"))
 
-# Create Angle For Text Label
-leaves <- which(!is.na(match(nodes$name, vertices$index)))
-nodes$leaf_id <- NA
-nodes$leaf_id[leaves] <- 1:length(leaves)
-nodes$angle <- 90 - 360 * nodes$leaf_id / length(leaves)
+# Edge Specifications
+connections <- data.frame(from=match(input_edges$v1, nodes$name),
+                          to=match(input_edges$v2, nodes$name),
+                          weights=input_edges$total_trades)
 
-# If I am on the left part of the plot, my labels have currently an angle < -90
-nodes$hjust<-ifelse(nodes$angle < -90, 1, 0)
+total_trade_cutoff <- quantile(input_edges$total_trades, 0.999)
+connections$alpha <- lapply(1:nrow(input_edges), 
+                        function(i) {
+                          a <- min(input_edges$total_trades[i] / total_trade_cutoff,1.)
+                          list(rep(a,n_points))})
 
-# flip angle BY to make them readable
-nodes$angle<-ifelse(nodes$angle < -90, nodes$angle+180, nodes$angle)
+connections$colors <- lapply(1:nrow(input_edges), 
+                        function(i) {
+                          v1 <- input_edges[[i,"v1"]]
+                          v2 <- input_edges[[i,"v2"]]
+                          
+                          # Set up colors
+                          region_v1 <- (input_vertices %>% filter(index == v1))$REGION
+                          region_v2 <- (input_vertices %>% filter(index == v2))$REGION
+                          list(colorRampPalette(c(color_dictionary[[region_v1]],color_dictionary[[region_v2]]))(n_points))
+                          
+                      })
 
-edge_bundle_graph <- graph_from_data_frame(hierarchy, vertices = nodes)
-
-# Color palette for edges and vertices
-color_dictionary <- get_color("palette")(length(unique(vertices$REGION)))
-names(color_dictionary) <- unique(vertices$REGION)
-
-# Edge Configuration
-from_nodes <- match(edges$v1, nodes$name)
-to_nodes <- match(edges$v2, nodes$name)
-edge_weights <- edges$total_trades
-edge_colors <- sapply(1:nrow(edges), 
-                      function(i) {
-                        v1 <- edges[[i,"v1"]]
-                        v2 <- edges[[i,"v2"]]
-                        
-                        # Set up colors
-                        region_v1 <- (vertices %>% filter(index == v1))$REGION
-                        region_v2 <- (vertices %>% filter(index == v2))$REGION
-                        # If same region, choose the region color, else set neutral color
-                        if (region_v1 == region_v2) {
-                          return(region_v1)
-                        } else {
-                          return("NONE")
-                        }
-                })
-
+# Plot the Graph
+edge_bundle_graph <-graph_from_data_frame(hierarchy, vertices = nodes)
 edge_bundle_plot <- ggraph(edge_bundle_graph, layout="dendrogram", circular=TRUE) +
                     theme_void() +
-                    geom_edge_diagonal(alpha=0.05) +
-                    geom_conn_bundle(data = get_con(from = from_nodes, to = to_nodes, 
-                                                    weights=edge_weights,
-                                                    colors=edge_colors), 
-                                     aes(alpha=weights, colour=colors),
-                                     tension = 0.8) +
-                    scale_edge_color_manual(values=c(color_dictionary, "NONE"=fade_color(ltxt_color,0.5))) + 
-                    geom_node_point(aes(filter = leaf, x = x*1.05, y=y*1.05, colour=group, size=value), alpha=0.8) +
-                    geom_node_text(aes(filter = leaf, x = x*1.15, y=y*1.15,label=name, angle = angle, hjust=hjust, colour=group), size=2, alpha=1) +
-                    scale_color_manual(values=color_dictionary)
+                    theme_lk(TRUE, TRUE, FALSE, FALSE) +
+                    geom_edge_diagonal(alpha=0.01)
+
+# Add Edge Bundles
+# There is a bug in ggraph_1.0.0.9999 where geom_conn_bundle can only plot at most 2 nodes of from before messing up the coloring,
+# we will fix this by generating geom_conn_bundle one node at a time
+for (v1 in unique(connections$from)) {
+  tmp <- connections %>% filter(from == v1)
+  edge_bundle_plot <- edge_bundle_plot +        
+                      geom_conn_bundle(data=get_con(from = tmp$from, to = tmp$to), 
+                                       colour=unlist(tmp$colors),
+                                       alpha=unlist(tmp$alpha),
+                                       n = n_points,
+                                       tension = 0.8) 
   
+} 
 
-plot(graph, vertex.label="", edge.arrow.size=0, vertex.size=2)
-
-
-ggraph(graph, layout="dendrogram", circular=TRUE) +
-  
-
-input <- edges %>%
-         inner_join(vertices %>% select(index, v1lon = lon, v1lat = lat), by=c("v1"="index")) %>%
-         inner_join(vertices %>% select(index, v2lon = lon, v2lat = lat), by=c("v2"="index"))
-
-l_plot <- leaflet(input, width = "100%") %>%
-          addProviderTiles("CartoDB.Positron") %>%
-          setMaxBounds(-200, 100,200,-100) %>%
-          setView(0, 30, 1)
-
-pwalk(
-  list(input$v1lon, input$v2lon, input$v1lat, input$v2lat),
-  function (v1lon, v2lon, v1lat, v2lat) {
-    l_plot <<- l_plot %>%
-               addPolylines(lng=c(v1lon, v2lon), lat=c(v1lat, v2lat))
-  }
-)
-
-# Kudos to R Graph Gallry for plotting 
-# https://www.r-graph-gallery.com/how-to-draw-connecting-routes-on-map-with-r-and-great-circles/
-map_network_plot <- 
-  function() {
-    map('world',
-        mar=c(0,5,0,5),resolution=0.5,
-        bg=bg_color, col=fade_color(txt_color,0.2), fill=TRUE, 
-        border=0, lwd=0.0001)
-    # Draw Points
-    points(x=vertices$lon, y=vertices$lat, 
-           col=get_color(1),
-           cex=0.5,
-           pch=20)
-    # Draw Edges
-    for (i in nrow(edges)) {
-      v1 <- vertices %>% filter(index == edges[[i,"v1"]])
-      v2 <- vertices %>% filter(index == edges[[i,"v2"]])
-      lines(greatCircle(c(v1$lon, v1$lat),c(v2$lon, v2$lat), n=200), lwd=2)
-    }
-  
-  
-  }
-
-
+# Adjust the angle and hjust based on the position of x and y
+edge_bundle_plot$data["angle"] <- sapply(1:nrow(edge_bundle_plot$data), 
+                                       function (i) {
+                                          t_ratio <- min(max(edge_bundle_plot$data$y[i] / edge_bundle_plot$data$x[i], -10000),10000)
+                                          atan(t_ratio) * 180 / pi
+                                        })
+edge_bundle_plot$data["hjust"] <- sapply(edge_bundle_plot$data$x, 
+                                         function (x) {
+                                           ifelse(x < 0, 1, 0)
+                                         })
+# Add Node Points
+edge_bundle_plot <- edge_bundle_plot +
+                    # Create Nodes
+                    geom_node_point(aes(filter = leaf, x = x, y=y, colour=region, size=value), alpha=0.8) +
+                    geom_node_text(aes(filter = leaf, x = x*1.05, y=y*1.05, 
+                                       colour=region, label=label, alpha=ranking,
+                                       angle=angle, hjust=hjust), size=2.5) +
+                    scale_size_continuous(name="Wildlife Trading Activity (Gross Imports + Exports)",
+                                          label=function (v) { sprintf("%.0f mil",v/1000000)},
+                                          guide=guide_legend(override.aes = list(color=txt_color, alpha=0.8))) + 
+                    scale_color_manual(values=color_dictionary, guide="none") +
+                    scale_alpha_continuous(limits=c(max(nodes$ranking)-110,max(nodes$ranking)-10), na.value=0.1, guide="none") +
+                    # Make sure labels are viewable
+                    expand_limits(x = c(-1.5, 1.5), y = c(-1.5, 1.5))
+                
 ## ---- end-of-model-graphs
 
 

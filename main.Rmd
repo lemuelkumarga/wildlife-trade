@@ -465,7 +465,12 @@ ii. which other nations that country is involved with.
 
 ### Modeling Wildlife Trade
 
-To 
+
+```{r,fig.asp=1.05, fig.width = 8}
+<<model-graphs>>
+  
+edge_bundle_plot
+```
 
 
 
