@@ -683,10 +683,11 @@ connections <- data.frame(from=match(input_edges$v1, nodes$name),
                           to=match(input_edges$v2, nodes$name),
                           weights=input_edges$total_trades)
 
-total_trade_cutoff <- quantile(input_edges$total_trades, 0.999)
+total_trade_min_cutoff <- quantile(input_edges$total_trades, 0.5)
+total_trade_max_cutoff <- quantile(input_edges$total_trades, 0.999)
 connections$alpha <- lapply(1:nrow(input_edges), 
                         function(i) {
-                          a <- min(input_edges$total_trades[i] / total_trade_cutoff,1.)
+                          a <- max(min((input_edges$total_trades[i] - total_trade_min_cutoff) / (total_trade_max_cutoff - total_trade_min_cutoff),1.),0.)
                           list(rep(a,n_points))})
 
 connections$colors <- lapply(1:nrow(input_edges), 
@@ -705,8 +706,7 @@ connections$colors <- lapply(1:nrow(input_edges),
 edge_bundle_graph <-graph_from_data_frame(hierarchy, vertices = nodes)
 edge_bundle_plot <- ggraph(edge_bundle_graph, layout="dendrogram", circular=TRUE) +
                     theme_void() +
-                    theme_lk(TRUE, TRUE, FALSE, FALSE) +
-                    geom_edge_diagonal(alpha=0.01)
+                    theme_lk(TRUE, TRUE, FALSE, FALSE)
 
 # Add Edge Bundles
 # There is a bug in ggraph_1.0.0.9999 where geom_conn_bundle can only plot at most 2 nodes of from before messing up the coloring,
