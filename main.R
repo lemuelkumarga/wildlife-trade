@@ -749,7 +749,7 @@ edge_bundle_plot <- edge_bundle_plot +
                 
 ## ---- end-of-model-graphs
 
-## ---- model-pagerank-hist
+## ---- model-pagerank
 
 trade_graph <- graph_from_data_frame(edges %>% rename(weight=total_trades), vertices = vertices)
 pr_rankings <- page_rank(trade_graph, directed = FALSE)$vector
@@ -759,15 +759,21 @@ pr_rankings <- data.frame(index=names(pr_rankings), PRANK=pr_rankings)
 vertices <- vertices %>%
             left_join(pr_rankings, by="index") 
 
+## ---- end-of-model-pagerank
+
+## ---- model-pagerank-hist
+
 pr_inputs <- vertices %>%
-             mutate(LOG_PRANK = log(PRANK),
-                    LOG_VALUE = log(VALUE),
-                    Z_PRANK = (LOG_PRANK - mean(LOG_PRANK)) / sd(LOG_PRANK),
-                    Z_VAL = (LOG_VALUE - mean(LOG_VALUE)) / sd(LOG_VALUE),
-                    R_PRANK = rank(desc(PRANK),ties.method="first"),
-                    R_VAL = rank(desc(VALUE), ties.method="first"),
-                    R_DIFF = R_PRANK - R_VAL,
-                    HAS_DIFF = ifelse(R_DIFF == 0,"NONE",REGION))
+              mutate(LOG_PRANK = log(PRANK),
+                     LOG_VALUE = log(VALUE),
+                     # Z value to normalize both
+                     Z_PRANK = (LOG_PRANK - mean(LOG_PRANK)) / sd(LOG_PRANK),
+                     Z_VAL = (LOG_VALUE - mean(LOG_VALUE)) / sd(LOG_VALUE),
+                     # Rankings
+                     R_PRANK = rank(desc(PRANK),ties.method="first"),
+                     R_VAL = rank(desc(VALUE), ties.method="first"),
+                     R_DIFF = R_PRANK - R_VAL,
+                     HAS_DIFF = ifelse(R_DIFF == 0,"NONE",REGION))
 
 hist_input <- select(pr_inputs, Z_VAL, Z_PRANK) %>%
               gather("type","val") %>%
@@ -811,7 +817,7 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
               theme_void() +
               theme_lk(TRUE, FALSE, FALSE, FALSE) +
               # Prevent removing points or arrows outside the limit
-              coord_cartesian(xlim = c(-1.8,max_rank + 0.5), ylim=c(-1.0,1.7)) +
+              coord_cartesian(xlim = c(-1.9,max_rank + 0.5), ylim=c(-1.0,1.7)) +
               # Modify scales
               scale_x_continuous(expand=c(0,0.05)) +
               scale_y_continuous(expand=c(0,0.05)) +
@@ -856,13 +862,14 @@ tc_edges <- edges %>%
 nodes_int <- unique(c(tc_edges$v1, tc_edges$v2))
 kr_vertice <- (vertices %>% filter(index == "KR"))
 fr_vertice <- (vertices %>% filter(index == "FR"))
-tc_vertices <- vertices %>% 
-               filter(index %in% nodes_int & !(index %in% c("KR","FR")))
+tc_vertices <- vertices %>% filter(index %in% nodes_int & !(index %in% c("KR","FR")))
 
 # Construct Input
+max_label_char <- 20
 circ_input <- tc_vertices %>%
-              mutate(x = rank(desc(PRANK), ties.method="first") / nrow(tc_vertices) * 360,
-                     theta = 90 - x)
+              mutate(x = rank(desc(PRANK), ties.method="first"),
+                     label = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
+                     theta = 90 - x / nrow(tc_vertices) * 360)
 circ_input$hjust <- sapply(circ_input$theta, function(t) { if (t <= -90){1} else {0}})
 circ_input$theta <- sapply(circ_input$theta, function (t) { if (t <= -90) { t + 180} else {t}})
 
@@ -870,17 +877,10 @@ circ_input$theta <- sapply(circ_input$theta, function (t) { if (t <= -90) { t + 
 neighbors_kr <- (tc_edges %>% filter(v1 == "KR" | v2 == "KR") %>% mutate(v = ifelse(v1 == "KR",v2,v1)))$v
 neighbors_fr <- (tc_edges %>% filter(v1 == "FR" | v2 == "FR") %>% mutate(v = ifelse(v1 == "FR",v2,v1)))$v
 circ_input$tag <- sapply(tc_vertices$index, function (ix) {
-                    
-                    if (ix %in% neighbors_kr & ix %in% neighbors_fr) {
-                      "BOTH"
-                    } else if (ix %in% neighbors_kr) {
-                      "KR"
-                    } else if (ix %in% neighbors_fr) {
-                      "FR"
-                    } else {
-                      "NONE"
-                    }
-                  
+                    if (ix %in% neighbors_kr & ix %in% neighbors_fr) { "BOTH" }
+                    else if (ix %in% neighbors_kr) { "KR" }
+                    else if (ix %in% neighbors_fr) { "FR" }
+                    else { "NONE" }
                   })
 
 compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
@@ -888,14 +888,14 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 theme_lk(TRUE, TRUE, FALSE, FALSE) +
                 theme(plot.margin = unit(c(20,0,20,0),'pt'),
                       legend.box = "vertical") +
-                scale_y_continuous(limits=c(0,1.5)) +
+                scale_y_continuous(limits=c(0,1.15)) +
                 # Add points, lines and labels of neighboring countries
                 geom_point(alpha=0.5) + 
                 geom_segment(data= circ_input %>% filter(tag %in% c("KR","FR")), 
                              aes(xend=x, y=0, yend=1, alpha=VALUE), 
                              size=0.5) +
                 geom_text(data= circ_input %>% filter(tag %in% c("KR","FR")),
-                          aes(label=NAME, angle=theta, hjust=hjust), 
+                          aes(label=label, angle=theta, hjust=hjust), 
                           y = 1.05, 
                           size=2.2,
                           show.legend = FALSE) +

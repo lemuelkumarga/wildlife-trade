@@ -421,7 +421,7 @@ grViz(paste0("
 
 In such a scenario, <span class="color-1-text">A</span> will have a net export of 100, B a net import of 1 and <span class="color-3-text">C</span> a net import of 99. Using the net import/export approach, <span class="color-2-text">B</span> is the least important player. However, in actuality, <span class="color-2-text">B</span> should be the most pivotal country as it is involved in all 199 trades. Hence, a better approach is required.
 
-One way to tackle the issue above is to instead use each country's <span class="hl">gross imports + exports</span> as a measure of involvement. This approach would work well in the above case, as <span class="color-2-text">B</span> would rightly be identified as the most important player. However, one weakness of such a method would be the huge assumption that the absolute numbers are extremely accurate. In truth, this may not be the case, due to the following reasons:
+One way to tackle the issue above is to instead use each country's gross <span class="hl">imports + exports</span> as a measure of involvement. This approach would work well in the above case, as <span class="color-2-text">B</span> would rightly be identified as the most important player. However, one weakness of such a method would be the huge assumption that the absolute numbers are extremely accurate. In truth, this may not be the case, due to the following reasons:
 
 1. There may be reporting errors recorded in the CITES database, and
 2. There could be conversion errors incurred in the <a href="#pre-processing">Pre-Processing</a> stage.
@@ -451,7 +451,7 @@ grViz(paste0("
 "), height=200)
 ```
 
-Using the gross imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
+Using the imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
 
 Fortunately, we are able to resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank">Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
 
@@ -479,7 +479,21 @@ The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target
 
 Other than that, we can also identify the most popular trade routes. The higher the intensity of wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>. It will be interesting to see how these routes affect the rankings obtained by PageRank.
 
-### Running the PageRank Algorithm
+### The PageRank Algorithm
+
+```{r}
+<<model-pagerank>>
+
+pander(vertices %>% arrange(desc(PRANK)) %>% head(5) %>%
+       mutate(Country=NAME, Imports_And_Exports = comma(VALUE), PageRank = percent(PRANK)) %>% 
+         select(Country, Imports_And_Exports, PageRank),
+       caption="The Top 5 Major Players According to PageRank")
+```
+
+#### What Do The Rankings Mean?
+
+
+#### Comparing With Imports + Exports Approach
 
 ```{r, fig.asp=0.5}
 <<model-pagerank-hist>>
@@ -499,13 +513,13 @@ rank_plot
 compare_plot
 ```
 
-### Assessing Values
+### The Major Players
 
+#### Suppliers
 
-### Interpreting Results
+#### Dealers
 
-
-### Finding the Supply
+#### Consumers
 
 ## Summary of Results
 
