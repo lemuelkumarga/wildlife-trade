@@ -886,8 +886,7 @@ circ_input$tag <- sapply(tc_vertices$index, function (ix) {
 compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 theme_void() +
                 theme_lk(TRUE, TRUE, FALSE, FALSE) +
-                theme(plot.margin = unit(c(20,0,20,0),'pt'),
-                      legend.box = "vertical") +
+                theme(plot.margin = unit(c(20,0,20,0),'pt')) +
                 scale_y_continuous(limits=c(0,1.15)) +
                 # Add points, lines and labels of neighboring countries
                 geom_point(alpha=0.5) + 
@@ -900,7 +899,7 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                           size=2.2,
                           show.legend = FALSE) +
                 # Change Legends
-                scale_size_continuous(name = "PageRank Probabilites",
+                scale_size_continuous(name = "PageRank Prob.",
                                       labels = percent) +
                 scale_color_manual(name="Traded With",
                                    values = c("BOTH" = fade_color(txt_color,0.2),
