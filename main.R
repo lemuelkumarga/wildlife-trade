@@ -749,4 +749,168 @@ edge_bundle_plot <- edge_bundle_plot +
                 
 ## ---- end-of-model-graphs
 
+## ---- model-pagerank-hist
 
+trade_graph <- graph_from_data_frame(edges %>% rename(weight=total_trades), vertices = vertices)
+pr_rankings <- page_rank(trade_graph, directed = FALSE)$vector
+pr_rankings <- data.frame(index=names(pr_rankings), PRANK=pr_rankings)
+
+# Add rankings to the vertices
+vertices <- vertices %>%
+            left_join(pr_rankings, by="index") 
+
+pr_inputs <- vertices %>%
+             mutate(LOG_PRANK = log(PRANK),
+                    LOG_VALUE = log(VALUE),
+                    Z_PRANK = (LOG_PRANK - mean(LOG_PRANK)) / sd(LOG_PRANK),
+                    Z_VAL = (LOG_VALUE - mean(LOG_VALUE)) / sd(LOG_VALUE),
+                    R_PRANK = rank(desc(PRANK),ties.method="first"),
+                    R_VAL = rank(desc(VALUE), ties.method="first"),
+                    R_DIFF = R_PRANK - R_VAL,
+                    HAS_DIFF = ifelse(R_DIFF == 0,"NONE",REGION))
+
+hist_input <- select(pr_inputs, Z_VAL, Z_PRANK) %>%
+              gather("type","val") %>%
+              arrange(desc(type))
+
+hist_plot <- ggplot(hist_input) + 
+             theme_lk() +
+             theme(
+               axis.ticks.x = element_blank(),
+               axis.title.x = element_blank(),
+               axis.text.x = element_blank(),
+               axis.line.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.title.y = element_blank(),
+               axis.text.y = element_blank()
+             ) +
+             scale_x_continuous(expand=c(0,0)) + 
+             scale_y_continuous(expand=c(0,0)) +
+             geom_vline(data=data.frame(1), xintercept = 0, linetype="dashed", colour=ltxt_color) + 
+             geom_text(data=data.frame(x=c(0.1,-3,7),
+                                        y=c(0.9,0.1,0.1),
+                                        hjust=c(0,0,1),
+                                        label=c("Mean","Less Important","More Important")),
+                        aes(x=x, y=y, hjust=hjust, label=label),
+                        colour = ltxt_color,
+                        family = def_font) + 
+             # Add geom density
+             geom_density(aes(x=val, fill=type, colour=type), alpha=0.25) +
+             scale_fill_manual(name="Methodology", values=get_color()[1:2], 
+                               labels=c("Z_VAL" = "Imports + Exports",
+                                        "Z_PRANK" = "PageRank"),
+                               guide=guide_legend(override.aes = list(color = get_color()[1:2]))) +
+             scale_color_manual(guide="none", values=get_color()[1:2])
+
+## ---- end-of-model-pagerank-hist
+
+## ---- model-pagerank-rank
+
+max_rank <- 25
+rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) + 
+              theme_void() +
+              theme_lk(TRUE, FALSE, FALSE, FALSE) +
+              # Prevent removing points or arrows outside the limit
+              coord_cartesian(xlim = c(-1.8,max_rank + 0.5), ylim=c(-1.0,1.7)) +
+              # Modify scales
+              scale_x_continuous(expand=c(0,0.05)) +
+              scale_y_continuous(expand=c(0,0.05)) +
+              scale_color_manual(values=c(color_dictionary,"NONE"=fade_color(txt_color,0.2)),
+                                 guide="none") +
+              scale_size_continuous(guide="none") +
+              # Add descriptors
+              geom_text(data=data.frame(x=c(0.2,0.2,1.0,max_rank),
+                                        y=c(0,1,-0.9,-0.9),
+                                        hjust=c(1,1,0,1),
+                                        label=c("Imports\n+ Exports","PageRank",
+                                                "More Important","Less Important")),
+                        aes(x=x, y=y, hjust=hjust, label=label),
+                        colour = ltxt_color,
+                        family = def_font, 
+                        size = 3) +
+              geom_segment(data=data.frame(1),
+                           aes(x=max_rank, xend=0.5,y=-0.8,yend=-0.8),
+                           colour = ltxt_color,
+                           arrow = arrow(length = unit(0.2,"cm"), type="closed")) +
+              # Add imports + exports ranks
+              geom_text(aes(x=R_VAL, y=-0.1, label=NAME), angle=90, hjust=1, size = 3) +
+              geom_point(aes(x=R_VAL, y=0, size=Z_VAL), alpha=0.5) +
+              # Add pagerank probabilities
+              geom_text(aes(x=R_PRANK, y=1.1, label=NAME), angle=90, hjust=0, size = 3) + 
+              geom_point(aes(x=R_PRANK, y=1.0, size=Z_PRANK), alpha=0.5) +
+              # Add arrows
+              geom_segment(aes(x=R_VAL, xend=R_PRANK, y=0.1, yend=0.9),
+                           arrow = arrow(length = unit(0.2, "cm"), type="closed")) 
+
+## ---- end-of-model-pagerank-rank
+
+## ---- model-pagerank-compare
+
+# Get edges only if they have either korea and france but not both
+c_int <- c("FR","KR")
+tc_edges <- edges %>%
+            filter(v1 %in% c_int | v2 %in% c_int) %>%
+            filter(!(v1 == "FR" & v2 == "KR"))
+
+# Get only neighboring vertices
+nodes_int <- unique(c(tc_edges$v1, tc_edges$v2))
+kr_vertice <- (vertices %>% filter(index == "KR"))
+fr_vertice <- (vertices %>% filter(index == "FR"))
+tc_vertices <- vertices %>% 
+               filter(index %in% nodes_int & !(index %in% c("KR","FR")))
+
+# Construct Input
+circ_input <- tc_vertices %>%
+              mutate(x = rank(desc(PRANK), ties.method="first") / nrow(tc_vertices) * 360,
+                     theta = 90 - x)
+circ_input$hjust <- sapply(circ_input$theta, function(t) { if (t <= -90){1} else {0}})
+circ_input$theta <- sapply(circ_input$theta, function (t) { if (t <= -90) { t + 180} else {t}})
+
+# Colors
+neighbors_kr <- (tc_edges %>% filter(v1 == "KR" | v2 == "KR") %>% mutate(v = ifelse(v1 == "KR",v2,v1)))$v
+neighbors_fr <- (tc_edges %>% filter(v1 == "FR" | v2 == "FR") %>% mutate(v = ifelse(v1 == "FR",v2,v1)))$v
+circ_input$tag <- sapply(tc_vertices$index, function (ix) {
+                    
+                    if (ix %in% neighbors_kr & ix %in% neighbors_fr) {
+                      "BOTH"
+                    } else if (ix %in% neighbors_kr) {
+                      "KR"
+                    } else if (ix %in% neighbors_fr) {
+                      "FR"
+                    } else {
+                      "NONE"
+                    }
+                  
+                  })
+
+compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
+                theme_void() +
+                theme_lk(TRUE, TRUE, FALSE, FALSE) +
+                theme(plot.margin = unit(c(20,0,20,0),'pt'),
+                      legend.box = "vertical") +
+                scale_y_continuous(limits=c(0,1.5)) +
+                # Add points, lines and labels of neighboring countries
+                geom_point(alpha=0.5) + 
+                geom_segment(data= circ_input %>% filter(tag %in% c("KR","FR")), 
+                             aes(xend=x, y=0, yend=1, alpha=VALUE), 
+                             size=0.5) +
+                geom_text(data= circ_input %>% filter(tag %in% c("KR","FR")),
+                          aes(label=NAME, angle=theta, hjust=hjust), 
+                          y = 1.05, 
+                          size=2.2,
+                          show.legend = FALSE) +
+                # Change Legends
+                scale_size_continuous(name = "PageRank Probabilites",
+                                      labels = percent) +
+                scale_color_manual(name="Traded With",
+                                   values = c("BOTH" = fade_color(txt_color,0.2),
+                                              "KR" = color_dictionary[[kr_vertice$REGION]], 
+                                              "FR" = color_dictionary[[fr_vertice$REGION]]),
+                                   labels = c("BOTH" = "Both",
+                                              "KR" = kr_vertice$NAME,
+                                              "FR" = fr_vertice$NAME)) +
+                scale_alpha_continuous(guide="none") +
+                # Change to coordinate polar
+                coord_polar()
+
+## ---- end-of-model-pagerank-compare

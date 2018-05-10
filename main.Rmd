@@ -453,7 +453,7 @@ grViz(paste0("
 
 Using the gross imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
 
-Fortunately, we are able to resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank>Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
+Fortunately, we are able to resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank">Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
 
 i. the number of links pointing to the website, and 
 ii. who is pointing to the website.
@@ -465,6 +465,9 @@ ii. which other nations that country is involved with.
 
 ### Modeling Wildlife Trade
 
+To run the PageRank algorithm, we need to model the wildlife trade as a network, where the countries are represented as <span class="hl">vertices</span>. Two countries are connected by an <span class="hl">edge</span> if the two have wildlife trading activity between one another. The degree of wildlife trading between two countries defines the <span>weight</span> of the edge. For the purposes of this study, we will use the sum of gross imports and exports as an indicator of the intensity of wildlife trading.
+
+Using the above definitions, we are now equipped to model the wildlife trade for the period of 2001 to 2015:
 
 ```{r,fig.asp=1.05, fig.width = 8}
 <<model-graphs>>
@@ -472,7 +475,34 @@ ii. which other nations that country is involved with.
 edge_bundle_plot
 ```
 
+The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target="_blank">hierarchical edge bundle</a> plot shows the degree of involvement of each country. The larger the circle, the greater the total imports and exports of the country. Unsurprisingly, both <span class="hl blue-text">United States</span> and <span class="hl orange-text">Indonesia</span> have the highest total imports and exports.
 
+Other than that, we can also identify the most popular trade routes. The higher the intensity of wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>. It will be interesting to see how these routes affect the rankings obtained by PageRank.
+
+### Running the PageRank Algorithm
+
+```{r, fig.asp=0.5}
+<<model-pagerank-hist>>
+
+hist_plot
+```
+
+```{r, fig.asp=0.7}
+<<model-pagerank-rank>>
+
+rank_plot
+```
+
+```{r, fig.asp=1.05, width=8}
+<<model-pagerank-compare>>
+
+compare_plot
+```
+
+### Assessing Values
+
+
+### Interpreting Results
 
 
 ### Finding the Supply
