@@ -925,10 +925,11 @@ vertices <- vertices %>%
             rename(PCT_IMPORT = pct_import) %>%
             arrange(desc(PRANK))
 
-cutoff_points <- sapply(2:3, function (x) { (x - 1.) / 3 })
-suppliers <- vertices %>% filter(PCT_IMPORT <= cutoff_points[1])
-dealers <- vertices %>% filter(PCT_IMPORT > cutoff_points[1] & PCT_IMPORT < cutoff_points[2])
-consumers <- vertices %>% filter(PCT_IMPORT >= cutoff_points[2])
+# Remove the single trade countries out of the calculations
+cutoff_points <- quantile(vertices$PCT_IMPORT, c(2./5.,3./5.))
+suppliers <- vertices %>% filter(PCT_IMPORT <= cutoff_points[[1]])
+dealers <- vertices %>% filter(PCT_IMPORT > cutoff_points[[1]] & PCT_IMPORT < cutoff_points[[2]])
+consumers <- vertices %>% filter(PCT_IMPORT >= cutoff_points[[2]])
 
 to_text <- function (data) {
   tmp <- data %>% head(5)
@@ -1008,7 +1009,7 @@ get_players <- function(countries, col) {
   }
   
   c_container <- paste0(c_container, "</div>",
-                        '<div style="font-size:0.9em; color: var(--font-color-75); text-align:right; padding:1em">Icons courtesy of <a href="https://dribbble.com/shots/1211759-Free-195-Flat-Flags" target="_blank">Muharrem Senyil</a></div>')
+                        '<div style="font-size:0.9em; color: var(--font-color-75); text-align:right; padding:1em">Icons courtesy of <a href="https://dribbble.com/shots/1211759-Free-195-Flat-Flags" target="_blank">Muharrem</a> and <a href="https://dribbble.com/shots/4028772-Freebies-Flat-Flags-227" target="_blank">Maria</a></div>')
   
   c_container
 }

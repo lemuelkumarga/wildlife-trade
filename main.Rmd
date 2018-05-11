@@ -544,7 +544,7 @@ pander(players, caption="The Top Suppliers, Dealers and Consumers")
 
 #### Consumers
 
-Consumers are countries that demand wildlife goods. They are identified by taking the top 33% percentile of import percentages.
+Consumers are countries that demand wildlife goods. They fall in the top 40th percentile of import percentages.
 
 Please scroll through the icons below to find out more about the top 5 consumers:
 
@@ -552,7 +552,7 @@ Please scroll through the icons below to find out more about the top 5 consumers
 
 #### Dealers
 
-Dealers are countries that neither consume nor supply wildlife goods. They act as intermediaries between suppliers and consumers and are identified by taking the middle 33% of import percentages.
+Dealers are countries that neither consume nor supply wildlife goods. They act as intermediaries between suppliers and consumers and fall between the 40th to 60th percentiles of import percentages.
 
 Please scroll through the icons below to find out more about the top 5 dealers:
 
@@ -560,7 +560,7 @@ Please scroll through the icons below to find out more about the top 5 dealers:
 
 #### Suppliers
 
-Suppliers are countries that provide for wildlife goods. They are identified by taking the bottom 33% of import percentages.
+Suppliers are countries that provide for wildlife goods. They fall in the bottom 40th percentile of import percentages.
 
 Please scroll through the icons below to find out more about the top 5 suppliers:
 
