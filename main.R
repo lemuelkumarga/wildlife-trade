@@ -994,8 +994,8 @@ get_players <- function(countries, col) {
     
     c_html <- sprintf(
                 paste0(
-                  '<a data-toggle="popover" data-html="true" title="" data-content="%s" data-original-title="%s">',
-                    '<img src="img/%s.png" style="margin: 1em 1em; filter: saturate(70%%);">',
+                  '<a class="players" data-toggle="popover" data-html="true" title="" data-content="%s" data-original-title="%s">',
+                    '<img src="img/%s.png">',
                   '</a>'),
                 c_body,
                 c_title,

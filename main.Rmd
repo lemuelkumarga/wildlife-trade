@@ -16,6 +16,25 @@ read_chunk("main.R")
   
 ```
 
+<style>
+/* Add custom css for this particular portfolio */
+a.players {
+    margin: 1em;
+}
+
+a.players img {
+    opacity: 1.0;
+    filter: saturate(0%);
+    -webkit-filter: saturate(0%);
+}
+
+a.players:hover img {
+    opacity: 1.0;
+    filter: saturate(80%);
+    -webkit-filter: saturate(80%);
+}
+</style>
+
 ## Problem Description
 
 Since the Stone Age, mankind has turned to nature for food, commerce and companionship. Our impact back then was minimal as resources were consumed at sustainable rates. However, over the past few decades, nature is increasingly under threat from overconsumption and excess capitalism. Our planet is facing multiple challenges on the environmental front, ranging from global warming to forest degradation. 
