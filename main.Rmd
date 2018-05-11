@@ -481,6 +481,8 @@ Other than that, we can also identify the most popular trade routes. The higher 
 
 ### The PageRank Algorithm
 
+With the network constructed, we can proceed to run the PageRank algorithm:
+
 ```{r}
 <<model-pagerank>>
 
@@ -490,10 +492,13 @@ pander(vertices %>% arrange(desc(PRANK)) %>% head(5) %>%
        caption="The Top 5 Major Players According to PageRank")
 ```
 
-#### What Do The Rankings Mean?
+Before continuing to the analysis, it is important for us to understand what the PageRank number represents. When used for assessing the quality of websites, this number refers to the <span class="hl">probability of a person viewing the website</span>. The higher the PageRank probability, the more likely the person will view the website, and hence the higher the quality of the site.
 
+Similarly, in the widlife trading context, the PageRank number of a country A is the <span class="hl">probability that A is responsible for a random wildlife trade</span>. The higher the PageRank of a country, the more wildlife trades are attributed to it. In other words, if there are 1 million trades worldwide, <span class="hl">United States</span> would account for approximately <span class="hl">`r round((vertices %>% filter(index == "US"))$PRANK,2)` million</span> trades. By identifying countries with the highest PageRank, we can potentially determine who the major players are.
 
 #### Comparing With Imports + Exports Approach
+
+To comprehend further how PageRank works, let us first compare it with Imports + Exports from a bird's eye view:
 
 ```{r, fig.asp=0.5}
 <<model-pagerank-hist>>
@@ -501,11 +506,19 @@ pander(vertices %>% arrange(desc(PRANK)) %>% head(5) %>%
 hist_plot
 ```
 
+The plot above shows the distribution of <span class="hl blue-text">PageRank</span> and <span class="hl green-text">Imports + Export</span> values. As can be seen, the latter distribution has a much gentler slope, implying that wildlife trade responsibilites are more "spread-out" across countries. <span class="hl">The PageRank algorithm, however, extremizes this distribution by compacting "average" countries into a single peak.</span> Only a handful of least and most important nations are left in the tails, allowing us to better distinguish them.
+
+Secondly, let us investigate how the rankings shift as we transition from one approach to another:
+
 ```{r, fig.asp=0.7}
 <<model-pagerank-rank>>
 
 rank_plot
 ```
+
+In both rankings, the top 5 countries remain the same. This implies that <span class="hl">gross imports and exports do play a prominent role in the PageRank algorithm.</span> However, the shifts from top 6 onwards also indicate that total trades is not the only factor influencing PageRank. 
+
+To understand the other variables affecting PageRank, let us compare two countries that have been promoted and demoted extensively, <span class="hl red-text">France</span> and <span class="hl orange-text">South Korea</span>:
 
 ```{r, fig.asp=1.05, width=8}
 <<model-pagerank-compare>>
@@ -513,20 +526,59 @@ rank_plot
 compare_plot
 ```
 
+The diagram above shows all the countries that either France or South Korea traded with. From the diagram, it is clear that <span class="red-text">France</span> has a greater outreach than <span class="orange-text">South Korea</span>, even though the latter has a higher total imports + exports. <span class="hl">This degree of outreach caused the algorithm to promote <span class="red-text">France</span> at the expense of <span class="hl orange-text">South Korea</span>.</span>
+
 ### The Major Players
 
-#### Suppliers
+Listed below are the major players detected through the PageRank algorithm. These players have been divided into three groups (<span class="hl">Consumers</span>, <span class="hl">Dealers</span> and <span class="hl">Suppliers</span>) based on their import percentage (with respect to the total imports and exports).
 
-#### Dealers
+```{r}
+<<model-results>>
+
+pander(players, caption="The Top Suppliers, Dealers and Consumers")
+```
+
+```{r echo=FALSE, warning=FALSE, results='hide'}
+<<results>>
+```
 
 #### Consumers
 
+Consumers are countries that demand wildlife goods. They are identified by taking the top 33% percentile of import percentages.
+
+Please scroll through the icons below to find out more about the top 5 consumers:
+
+`r get_players((consumers %>% head(5))$index,get_color("red"))`
+
+#### Dealers
+
+Dealers are countries that neither consume nor supply wildlife goods. They act as intermediaries between suppliers and consumers and are identified by taking the middle 33% of import percentages.
+
+Please scroll through the icons below to find out more about the top 5 dealers:
+
+`r get_players((dealers %>% head(5))$index,heading_color)`
+
+#### Suppliers
+
+Suppliers are countries that provide for wildlife goods. They are identified by taking the bottom 33% of import percentages.
+
+Please scroll through the icons below to find out more about the top 5 suppliers:
+
+`r get_players((suppliers %>% head(5))$index,get_color("purple"))`
+
 ## Summary of Results
+
+By standardizing measurements through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
+
+* <span class="hl red-text">Consumers</span> are countries which generate the demand of wildlife. It is important to educate citizens in these countries to stop using wildlife-related products. The top 5 consumers are `r paste0(sprintf('<span class="hl red-text">%s</span>',(consumers %>% head(5))$NAME), collapse = ", ")`.
+* <span class="hl">Dealers</span> are countries which connect suppliers with consumers. More stringent measures can be set up in these countries' trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
+* <span class="hl purple-text">Suppliers</span> are countries that provide the wildlife goods. Efforts to protect the nature reserves of these countries should be emphasized. The top 5 suppliers are `r paste0(sprintf('<span class="hl purple-text">%s</span>',(suppliers %>% head(5))$NAME), collapse = ", ")`.
 
 ## Limitations
 
 * Wild
 * Unidentified Species
+* Overview
 
 ## References
 

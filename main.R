@@ -515,7 +515,21 @@ world_borders <- readOGR( dsn= paste0(getwd(),"/",specs_dir,"world_borders") ,
                           layer="TM_WORLD_BORDERS_SIMPL-0.3", 
                           verbose = FALSE)
 
-get_leaflet_plot <- function(isImport = TRUE) {
+# Dataset containing trades_by_country
+trades_by_import <- dataset %>%
+                    group_by(Importer) %>%
+                    summarise(imports = sum(Qty))
+trades_by_export <- dataset %>%
+                    group_by(Exporter) %>%
+                    summarise(exports = sum(Qty))
+trades_by_country <- trades_by_import %>%
+                      full_join(trades_by_export, by=c("Importer" = "Exporter")) %>%
+                      mutate(imports = ifelse(is.na(imports),0,imports),
+                             exports = ifelse(is.na(exports),0,exports),
+                             net_imports = ifelse(imports > exports, imports - exports, NA),
+                             net_exports = ifelse(exports > imports, exports - imports, NA))
+
+get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   # Example Plot Courtesy of
   # https://www.r-graph-gallery.com/183-choropleth-map-with-leaflet/
   
@@ -523,24 +537,12 @@ get_leaflet_plot <- function(isImport = TRUE) {
   map_col <- ifelse(isImport,"red","purple")
   leg_tit <- ifelse(isImport,"Wildlife Demand by Countries (Quantile)","Wildlife Supply by Countries (Quantile)")
   
-  trades_by_import <- dataset %>%
-                      group_by(Importer) %>%
-                      summarise(imports = sum(Qty))
-  trades_by_export <- dataset %>%
-                      group_by(Exporter) %>%
-                      summarise(exports = sum(Qty))
-  trades_by_country <- trades_by_import %>%
-                       full_join(trades_by_export, by=c("Importer" = "Exporter")) %>%
-                       mutate(imports = ifelse(is.na(imports),0,imports),
-                              exports = ifelse(is.na(exports),0,exports),
-                              net_imports = ifelse(imports > exports, imports - exports, NA),
-                              net_exports = ifelse(exports > imports, exports - imports, NA))
-  trades_by_country["net_val"] <- ifelse(isImport, trades_by_country["net_imports"], trades_by_country["net_exports"])
+  trade_dataset["net_val"] <- ifelse(isImport, trade_dataset["net_imports"], trade_dataset["net_exports"])
   
   # Join trade information into world data
   polygons <- world_borders
   polygons@data <- polygons@data %>%
-                   left_join(trades_by_country, by=c("ISO2"="Importer")) %>%
+                   left_join(trade_dataset, by=c("ISO2"="Importer")) %>%
                    mutate(rank = rank(desc(net_val),ties="first"))
   
   # Remove those countries with no wildlife trades
@@ -626,12 +628,12 @@ get_leaflet_plot <- function(isImport = TRUE) {
                       popup = marker_popup)
 }
 
-leaflet_import_plot <- get_leaflet_plot()
+leaflet_import_plot <- get_leaflet_plot(trades_by_country)
 
 ## ---- end-of-exp-imports
 
 ## ---- exp-exports
-leaflet_export_plot <- get_leaflet_plot(FALSE)
+leaflet_export_plot <- get_leaflet_plot(trades_by_country, FALSE)
 ## ---- end-of-exp-exports
 
 ## ---- model-graphs
@@ -757,7 +759,8 @@ pr_rankings <- data.frame(index=names(pr_rankings), PRANK=pr_rankings)
 
 # Add rankings to the vertices
 vertices <- vertices %>%
-            left_join(pr_rankings, by="index") 
+            left_join(pr_rankings, by="index") %>%
+            mutate(R_PRANK = rank(desc(PRANK),ties.method="first"))
 
 ## ---- end-of-model-pagerank
 
@@ -770,7 +773,6 @@ pr_inputs <- vertices %>%
                      Z_PRANK = (LOG_PRANK - mean(LOG_PRANK)) / sd(LOG_PRANK),
                      Z_VAL = (LOG_VALUE - mean(LOG_VALUE)) / sd(LOG_VALUE),
                      # Rankings
-                     R_PRANK = rank(desc(PRANK),ties.method="first"),
                      R_VAL = rank(desc(VALUE), ties.method="first"),
                      R_DIFF = R_PRANK - R_VAL,
                      HAS_DIFF = ifelse(R_DIFF == 0,"NONE",REGION))
@@ -867,7 +869,7 @@ tc_vertices <- vertices %>% filter(index %in% nodes_int & !(index %in% c("KR","F
 # Construct Input
 max_label_char <- 20
 circ_input <- tc_vertices %>%
-              mutate(x = rank(desc(PRANK), ties.method="first"),
+              mutate(x = rank(desc(PRANK),ties.method="first"),
                      label = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
                      theta = 90 - x / nrow(tc_vertices) * 360)
 circ_input$hjust <- sapply(circ_input$theta, function(t) { if (t <= -90){1} else {0}})
@@ -899,7 +901,7 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                           size=2.2,
                           show.legend = FALSE) +
                 # Change Legends
-                scale_size_continuous(name = "PageRank Prob.",
+                scale_size_continuous(name = "PageRank",
                                       labels = percent) +
                 scale_color_manual(name="Traded With",
                                    values = c("BOTH" = fade_color(txt_color,0.2),
@@ -913,3 +915,102 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 coord_polar()
 
 ## ---- end-of-model-pagerank-compare
+
+## ---- model-results
+
+vertices <- vertices %>%
+            left_join(trades_by_country %>% 
+                      mutate(pct_import = imports / (imports + exports)) %>% 
+                      select(Importer,pct_import), by=c("index"="Importer")) %>%
+            rename(PCT_IMPORT = pct_import) %>%
+            arrange(desc(PRANK))
+
+cutoff_points <- sapply(2:3, function (x) { (x - 1.) / 3 })
+suppliers <- vertices %>% filter(PCT_IMPORT <= cutoff_points[1])
+dealers <- vertices %>% filter(PCT_IMPORT > cutoff_points[1] & PCT_IMPORT < cutoff_points[2])
+consumers <- vertices %>% filter(PCT_IMPORT >= cutoff_points[2])
+
+to_text <- function (data) {
+  tmp <- data %>% head(5)
+  tmp$TEXT <- sapply(1:nrow(tmp), function (i) { paste0(tmp[i,"NAME"]," (",toOrdinal(tmp[i,"R_PRANK"]),")")})
+  tmp$TEXT
+}
+players <- data.frame("Consumers"=to_text(consumers),
+                      "Dealers"=to_text(dealers),
+                      "Suppliers"=to_text(suppliers))
+
+## ---- end-of-model-results
+
+## ---- results
+
+countries <- c("US")
+col <- get_color("red")
+
+get_players <- function(countries, col) {
+  c_container <- '<div style="display: flex; flex-wrap: wrap; justify-content: space-around">'
+  
+  for (c in countries) {
+    c_row <- vertices %>% filter(index == c)
+    
+    # Create Title
+    c_title <- sprintf("<span style='color: %s'>%s</span>",
+                      col,
+                      c_row$NAME)
+    
+    # Create Body
+    # 1st get pagerank
+    c_body <- sprintf("<span style='font-size:0.8em'>PageRank:</span> <span class='hl' style='color: %s'>%s (%s)</span><br>",
+                      col,
+                      toOrdinal(c_row$R_PRANK), 
+                      percent(c_row$PRANK))
+    
+    # 2nd get imports and exports
+    c_ie <- trades_by_country %>% filter(Importer == c)
+    c_body <- paste0(c_body, 
+                     sprintf("<span style='font-size:0.8em'>Imports/Exports:</span> <span class='hl' style='color: %s'>%s/%s</span><br><br>", 
+                             col,
+                             comma_format(0)(c_ie$imports), 
+                             comma_format(0)(c_ie$exports)))
+    
+    # 3rd get most commonly traded species (Those that have been identified)
+    c_animals <- dataset %>% 
+                 filter(Importer == c | Exporter == c) %>%
+                 group_by(Taxon, CommonName) %>%
+                 summarise(total_trades = sum(Qty)) %>%
+                 mutate(Name = ifelse(CommonName == "",Taxon, CommonName)) %>%
+                 arrange(desc(total_trades)) %>%
+                 head(5)
+    c_animals[['Name']] <- sapply(c_animals[['Name']], function(x) { strsplit(x,", ")[[1]][1] })
+    
+    c_body <- paste0(c_body,
+                     "<span style='font-size:0.8em'>Top Traded Species [Quantity]</span>:<br>")
+    for (i in 1:nrow(c_animals)) {
+      c_body <- paste0(c_body,
+                       sprintf("%s [%s]<br>",
+                               c_animals[[i,"Name"]],
+                               comma_format(0)(c_animals[[i,"total_trades"]])))
+    }
+    
+    c_html <- sprintf(
+                paste0(
+                  '<a data-toggle="popover" data-html="true" title="" data-content="%s" data-original-title="%s">',
+                    '<img src="img/%s.png" style="margin: 1em 1em; filter: saturate(70%%);">',
+                  '</a>'),
+                c_body,
+                c_title,
+                tolower(c),
+                col
+              )
+    
+    c_container <- paste0(c_container,
+                          c_html)
+                 
+  }
+  
+  c_container <- paste0(c_container, "</div>",
+                        '<div style="font-size:0.9em; color: var(--font-color-75); text-align:right; padding:1em">Icons courtesy of <a href="https://dribbble.com/shots/1211759-Free-195-Flat-Flags" target="_blank">Muharrem Senyil</a></div>')
+  
+  c_container
+}
+
+## ---- end-of-results
