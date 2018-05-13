@@ -13,12 +13,13 @@ options(stringsAsFactors = FALSE)
 # To install rgdal, you may need to follow these instructions on Mac
 # https://stackoverflow.com/questions/34333624/trouble-installing-rgdal
 # (Kudos to @Stophface)
-packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR",
+packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR","data.table","parallel",
               "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR","rgdal",
               "leaflet","colorspace","toOrdinal","igraph","ggraph","grDevices")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
+cache_dir <- "cache/"
 specs_dir <- "specs/"
 
 ## ---- end-of-init
@@ -26,79 +27,42 @@ specs_dir <- "specs/"
 # About the Data ----
 ## ---- data-overview
 
-# Load Data
-dataset <- read.csv(paste0(data_dir,"cites_2001.csv"))
-for (yy in 2002:2015) {
-  dataset <- rbind(dataset, read.csv(paste0(data_dir,"cites_",yy,".csv")))
+# Run only if cache does not exist
+# Cache is used as certain pre-processing takes an extensive amount of time
+getCacheOrRun <- function(f, dataset, cache_file) {
+  cache_file <- paste0(cache_dir,cache_file,".RDS")
+  if (file.exists(cache_file)) { readRDS(cache_file) }
+  else { dataset <- f(dataset); saveRDS(dataset, cache_file); dataset }
 }
 
-# Add Legends
-dataset <- dataset %>% 
+# Load Data
+loadDataset <- function(dataset) {
+  dataset <- read.csv(paste0(data_dir,"cites_2001.csv"))
+  for (yy in 2002:2015) {
+    dataset <- rbind(dataset, read.csv(paste0(data_dir,"cites_",yy,".csv")))
+  }
+  
+  # Add Legends
+  dataset %>% 
   left_join(read.csv(paste0(specs_dir,"cites_purpose.csv")), by="Purpose") %>%
   select(-Purpose) %>%
   rename(Purpose = Explanation) %>%
   left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
   select(-Source) %>%
   rename(Source = Explanation)
+}
+dataset <- getCacheOrRun(loadDataset,dataset, "2001_2015_dataset")
 
 cols_summary <- data_overview(dataset)
 ## ---- end-of-data-overview
 
 # Pre-Processing ----
-## ---- pp-restrict-animals
+## ---- pp-animals
 
 dataset <- dataset %>%
   filter(Class != "")
 
-## ---- end-of-pp-restrict-animals
-
-## ---- pp-restrict-endanger
-
-# Create an account with IUCN and download the csv from http://www.iucnredlist.org/search/saved?id=90695
-# Move the csv into the data folder and rename it as iucn_list.csv
-
-iucn_dataset <- read.csv(paste0(data_dir,"iucn_list.csv"), fileEncoding="latin1")
-
-iucn_dataset <- iucn_dataset %>% 
-  select(Order,
-         Family,
-         Genus,
-         Species,
-         CommonName = Common.names..Eng.,
-         IUCNStatus = Red.List.status)
-iucn_dataset$IUCNStatus <- factor(iucn_dataset$IUCNStatus, 
-                                  levels=c("EW","EX","VU","EN","CR"),
-                                  ordered = TRUE)
-
-# Different trades might have different level of granularities
-# Some taxonomies only exist until Order, some until Family, and
-# some until Genus. For such circumstances, we will assume the 
-# worst case scenario, i.e. choose the most endangered status
-# among species in the same family
-species_iucn_list <- iucn_dataset %>%
-  mutate(Taxon = paste(Genus, Species)) %>%
-  select(Taxon, CommonName, IUCNStatus)
-group_iucn <- function (granular) {
-  tmp_iucn_list <- iucn_dataset
-  tmp_iucn_list["Taxon"] <- lapply(tmp_iucn_list[granular],
-                                   function (s) { paste0(toupper(substr(s,1,1)),tolower(substr(s,2,nchar(s))), " spp.")})
-  tmp_iucn_list %>%
-    group_by(Taxon) %>%
-    summarise(CommonName = "",
-              IUCNStatus = max(IUCNStatus))
-}
-genus_iucn_list <- group_iucn("Genus")
-family_iucn_list <- group_iucn("Family")
-order_iucn_list <- group_iucn("Order")
-iucn_list <- rbind(species_iucn_list, 
-                   genus_iucn_list, 
-                   family_iucn_list, 
-                   order_iucn_list)
-
-dataset <- dataset %>%
-  inner_join(iucn_list, by="Taxon")
-
-## ---- end-of-pp-restrict-endanger
+## ---- end-of-pp-animals
 
 ## ---- pp-terms-overview
 
@@ -114,28 +78,35 @@ dataset <- dataset %>%
 
 ## ---- pp-to-si
 
-# A dictionary for converting scientific units to SI
-# First item correspond to the SI unit
-# and second the conversion factor
-units_to_si <- list(
-  "cm" = c("m", 0.01),
-  "g" = c("kg",0.001),
-  "pairs" = c("",2),
-  "mg" = c("kg",1e-6),
-  "l" = c("m3",0.001),
-  "ml" = c("m3",1e-6),
-  "ft2" = c("m2",0.092903),
-  "cm2" = c("m2",0.0001),
-  "cm3" = c("m3",1e-6),
-  "microgrammes" = c("kg",1e-9)
-)
-
-for (i in which(dataset$Unit %in% names(units_to_si))) {
-  qty <- dataset[i,"Qty"]
-  unit <- dataset[i,"Unit"]
-  dataset[i,"Unit"] <- units_to_si[[unit]][1]
-  dataset[i,"Qty"] <- as.double(units_to_si[[unit]][2]) * qty
+convertToSI <- function(dataset) {
+  # A dictionary for converting scientific units to SI
+  # First item correspond to the SI unit
+  # and second the conversion factor
+  units_to_si <- list(
+    "cm" = c("m", 0.01),
+    "g" = c("kg",0.001),
+    "pairs" = c("",2),
+    "mg" = c("kg",1e-6),
+    "l" = c("m3",0.001),
+    "ml" = c("m3",1e-6),
+    "ft2" = c("m2",0.092903),
+    "cm2" = c("m2",0.0001),
+    "cm3" = c("m3",1e-6),
+    "microgrammes" = c("kg",1e-9)
+  )
+  
+  rows_to_modify <- which(dataset$Unit %in% names(units_to_si))
+  for (i in which(dataset$Unit %in% names(units_to_si))) {
+    qty <- dataset[i,"Qty"]
+    unit <- dataset[i,"Unit"]
+    dataset[i,"Unit"] <- units_to_si[[unit]][1]
+    dataset[i,"Qty"] <- as.double(units_to_si[[unit]][2]) * qty
+  }
+  
+  dataset
 }
+dataset <- getCacheOrRun(convertToSI, dataset, "si_converted_data")
+
 ## ---- end-of-pp-to-si
 
 ## ---- pp-term-unit-summary
@@ -236,7 +207,7 @@ convertViaMedian <- function(data, target) {
       left_join(reference, by=c("Link"="Grouping", "Term"="Term","Unit"="Unit")) %>%
       mutate(
         Median = ifelse((granular == 'Kingdom' & is.na(Median)) | 
-                          (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
+                          (granular != 'Kingdom' & Records < 10 & !is.na(ProposedMedian)),
                         ProposedMedian, Median),
         Records = ifelse((granular == 'Kingdom' & Records == 0) |
                            (granular != 'Kingdom' & Records < 10 & !is.na(ProposedRecord)),
@@ -283,7 +254,11 @@ convertViaMedian <- function(data, target) {
   return(data)
 }
 
-dataset <- convertViaMedian(dataset, target_unit %>% select(Term, Unit))
+standardizeUnits <- function(dataset) {
+  convertViaMedian(dataset, target_unit %>% select(Term, Unit))
+}
+
+dataset <- getCacheOrRun(standardizeUnits, dataset, "units_standardized_data")
 
 ## ---- end-of-pp-term-unit-final
 
@@ -307,10 +282,178 @@ dataset <- dataset %>%
 
 ## ---- pp-term-ambiguous-convert
 
-target <- data_frame(Term = "animal")
-dataset <- convertViaMedian(dataset, target)
+convertAmbiguousTerm <- function(dataset) {
+  target <- data_frame(Term = "animal")
+  convertViaMedian(dataset, target)
+}
+
+dataset <- getCacheOrRun(convertAmbiguousTerm, dataset, "standardized_data")
 
 ## ---- end-of-pp-term-ambiguous-convert
+
+## ---- pp-taxon
+
+completeTaxon <- function(dataset) {
+  
+  # Find all missing taxonomy records, sorted by the missing information degree
+  missing_taxon <- dataset %>% 
+                   filter((Taxon == Class | grepl("spp.",Taxon)) & !is.na(Exporter) & !is.na(Importer)) %>%
+                   group_by_at(vars(colnames(dataset)[!grepl("Qty",colnames(dataset))])) %>%
+                   summarise(Qty = sum(Qty)) %>%
+                   arrange(desc(Genus), desc(Family), desc(Order), desc(Class)) %>%
+                   ungroup()
+  
+  # Special case for hybrids
+  hybrid_taxons <- dataset %>%
+                   filter(grepl("hybrid",Taxon))
+  
+  dataset_hybrid <- hybrid_taxons %>%
+                    filter(Genus != "")
+  
+  missing_hybrid <- hybrid_taxons %>%
+                    filter(Genus == "")
+  
+  # Convert missing taxonomy data to complete taxonomy
+  # @input completed_taxon a dataset containing only complete taxonomy records
+  # @input r the missing taxonomy record to insert
+  # @output the new complete taxonomy records based on r
+  convertMissingTaxon <- function(completed_taxon, r) {
+    
+    # Find all the completed taxonomies associated with the missing row
+    referenced_taxon <- completed_taxon %>%
+                        filter((r$Class == "" | r$Class == Class) &
+                               (r$Order == "" | r$Order == Order) &
+                               (r$Family == "" | r$Family == Family) &
+                               (r$Genus == "" | r$Genus == Genus))
+    
+    # If there are no references, no rows are added
+    if (nrow(referenced_taxon) == 0) { return(completed_taxon) }
+    
+    # Create a taxonomy dictionary which returns the distribution
+    # of complete taxonomies. The granularity will determine
+    # if this distribution was from trade routes, exports of 
+    # exporter, imports of importer, or the whole universe of
+    # trades
+    taxonDictionary <- function(granularity) {
+      referenced_taxon %>%
+        mutate(
+          Importer = sapply(Importer, function (i) { ifelse(granularity %in% c("EXPORT","ALL"),r$Importer,i)}),
+          Exporter = sapply(Exporter, function (e) { ifelse(granularity %in% c("IMPORT","ALL"),r$Exporter,e)})
+        ) %>%
+        filter(r$Exporter == Exporter & r$Importer == Importer) %>%
+        group_by(Taxon, Class, Order, Family, Genus, Exporter, Importer) %>%
+        summarise(Qty = sum(Qty)) %>%
+        ungroup() %>%
+        mutate(Ratio = Qty / sum(Qty)) %>%
+        select(NewTaxon = Taxon, 
+               NewClass = Class,
+               NewOrder = Order,
+               NewFamily = Family,
+               NewGenus = Genus, 
+               Ratio)
+    }
+    
+    # Merge the old row with the dictionary and spread the
+    # quantity with the percentages in the dictionary.
+    # If the most granular dictionary does not have any
+    # data, proceed to a less granular dictionary
+    for (g in c("ROUTE","EXPORT","IMPORT","ALL")) {
+      taxon_dict <- taxonDictionary(g)
+      if (nrow(taxon_dict) == 0) { next; }
+      new_rs <- merge(r, taxon_dict, all=TRUE) %>%
+                  mutate(Taxon = NewTaxon,
+                         Class = NewClass,
+                         Order = NewOrder,
+                         Family = NewFamily,
+                         Genus = NewGenus,
+                         Qty = Ratio * Qty,
+                         FromMissingTaxon = TRUE) %>%
+                  select(-NewTaxon, -NewClass, -NewOrder, -NewFamily, -NewGenus, -Ratio)
+      return(new_rs)
+      
+    }
+    
+  }
+  
+  # Insert the missing taxonomies one by one
+  insertMissingTaxon <- function(dataset, rows) {
+    
+    # Prepare cores for parallel processing
+    n_cores <- detectCores() - 1
+    cl <- makeCluster(n_cores, outfile="")
+    clusterEvalQ(cl, { library("dplyr"); library("scales")})
+    clusterExport(cl, c("dataset","rows"), environment())
+    clusterExport(cl, c("convertMissingTaxon"), parent.env(environment()))
+    
+    new_rs <- parLapply(cl, 1:nrow(rows),function(i) {
+                cat("|")
+                missing_row <- rows[i,]
+                convertMissingTaxon(dataset, missing_row)
+              })
+     
+     stopCluster(cl)
+    
+     rbind(dataset,rbindlist(new_rs, use.names=TRUE))
+  }
+  
+  dataset <- dataset %>%
+             mutate(FromMissingTaxon = FALSE) %>%
+             filter(!grepl("spp.|hybrid",Taxon) & Taxon != Class)
+  
+  # First insert taxonomies with missing species
+  no_species <- missing_taxon %>% filter(Genus != "")
+  dataset <- insertMissingTaxon(dataset, no_species)
+  # Then insert taxonomies with missing genus
+  no_genus <- missing_taxon %>% filter(Family != "" & Genus == "")
+  dataset <- insertMissingTaxon(dataset, no_genus)
+  # Then insert taxonomies with missing family
+  no_family <- missing_taxon %>% filter(Order != "" & Family == "")
+  dataset <- insertMissingTaxon(dataset, no_family)
+  # Then insert taxonomies with missing order
+  no_order <- missing_taxon %>% filter(Class != "" & Order == "")
+  dataset <- insertMissingTaxon(dataset, no_order)
+  
+  # Finally, settle the hybrids dataset, which is a smaller subset
+  dataset_hybrid <- dataset_hybrid %>%
+                    mutate(FromMissingTaxon = FALSE)
+  dataset_hybrid <- insertMissingTaxon(dataset_hybrid, missing_hybrid)
+  dataset <- rbind(dataset, dataset_hybrid)
+  
+  # Next get taxonomies
+  # Condense the dataset
+  dataset %>%
+    group_by(Year, App., Taxon, Class, Order, Family, Genus, Importer, Exporter, Term, Unit, Purpose, Source, Converted, FromMissingTaxon) %>%
+    summarise(Qty = sum(Qty)) %>%
+    ungroup()
+}
+dataset <- getCacheOrRun(completeTaxon, dataset, "complete_taxon_data")
+
+## ---- end-of-pp-taxon
+
+## ---- pp-endanger
+
+# Create an account with IUCN and download the csv from http://www.iucnredlist.org/search/saved?id=90695
+# Move the csv into the data folder and rename it as iucn_list.csv
+
+iucn_dataset <- read.csv(paste0(data_dir,"iucn_list.csv"), fileEncoding="latin1")
+
+iucn_dataset <- iucn_dataset %>% 
+  select(Order,
+         Family,
+         Genus,
+         Species,
+         CommonName = Common.names..Eng.,
+         IUCNStatus = Red.List.status) %>%
+  mutate(Taxon = paste(Genus, Species)) %>%
+  select(Taxon, CommonName, IUCNStatus)
+
+# Choose only the first english name out of the list
+iucn_dataset[['CommonName']] <- sapply(iucn_dataset[['CommonName']], function(x) { strsplit(x,", ")[[1]][1] })
+
+dataset <- dataset %>%
+           inner_join(iucn_dataset, by="Taxon")
+
+## ---- end-of-pp-endanger
 
 # Exploration ----
 
@@ -452,19 +595,14 @@ trades_by_species <- dataset %>%
                      group_by(Class, Order, Family, Genus, Taxon, CommonName) %>%
                      summarise(total_trades = sum(Qty)) %>%
                      ungroup()
-trades_by_species[['CommonName']] <- sapply(trades_by_species[['CommonName']], function(x) { strsplit(x,", ")[[1]][1] })
 
 sunburst_input <- trades_by_species %>%
                   group_by(Class) %>%
-                  mutate(Node = ifelse(grepl("spp.",Taxon), Class,ifelse(is.na(CommonName),Taxon, gsub("-"," ",CommonName))),
+                  mutate(Node = ifelse(is.na(CommonName),Taxon, gsub("-"," ",CommonName)),
                          Category = Class,
                          CategorySize = sum(total_trades),
-                         Seq = ifelse(grepl("spp.",Taxon),
-                                      Node,
-                                      paste(Class,Node, sep="-")),
-                         Depth = ifelse(grepl("spp.",Taxon),
-                                        1,
-                                        2)) %>%
+                         Seq = paste0(Class,Node, sep="-"),
+                         Depth = 2) %>%
                   ungroup() %>% group_by(Node, Category, CategorySize, Seq, Depth) %>%
                   summarise(Value = sum(total_trades)) %>%
                   ungroup() %>%
@@ -472,9 +610,7 @@ sunburst_input <- trades_by_species %>%
                   filter(CategorySize >= 0.0001 * sum(Value))
 
 # Add Categories That Are Not Represented By A Row
-no_node_categories <- unique(sunburst_input$Category[!(sunburst_input$Category %in% sunburst_input$Node)])
 additional_nodes <- sunburst_input %>%
-                    filter(sunburst_input$Category %in% no_node_categories) %>%
                     mutate(Node = Category,
                            Seq = Category,
                            Depth = 1,
@@ -751,6 +887,7 @@ edge_bundle_plot <- edge_bundle_plot +
                 
 ## ---- end-of-model-graphs
 
+# Modeling ----
 ## ---- model-pagerank
 
 trade_graph <- graph_from_data_frame(edges %>% rename(weight=total_trades), vertices = vertices)
@@ -916,26 +1053,67 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
 
 ## ---- end-of-model-pagerank-compare
 
-## ---- model-results
+## ---- model-pagerank-decompose
+
+# Calculate the Net Exports and Imports for each country at a specified level of taxonomy granularity
+net_gross_p_country <- function(granularity="Taxon") {
+  
+  imports <- dataset %>% 
+    group_by_at(vars("Importer", granularity)) %>% 
+    summarise(Imports = sum(Qty)) %>% ungroup()
+  exports <- dataset %>% 
+    group_by_at(vars("Exporter", granularity)) %>% 
+    summarise(Exports = sum(Qty)) %>% ungroup()
+  by_joins <- c("Exporter",granularity)
+  
+  names(by_joins) <- c("Importer",granularity)
+  trades <- imports %>% 
+    full_join(exports, by=by_joins) %>%
+    mutate(
+      index = Importer,
+      Imports = ifelse(is.na(Imports),0,Imports),
+      Exports = ifelse(is.na(Exports),0,Exports),
+      Gross = Imports + Exports,
+      Net_Exports = ifelse(Exports > Imports, Exports - Imports,0),
+      Net_Imports = ifelse(Imports > Exports, Imports - Exports,0),
+      # Trades that are not supplied [net export] or consumed [net imports] are ones
+      # that are being transited within the country
+      Transits = ifelse(Imports > Exports, Exports, Imports)
+    )
+  trades %>% select_at(vars("index",granularity,"Imports","Exports","Gross","Net_Exports","Net_Imports","Transits"))
+}
+country_taxon_trades <- net_gross_p_country()
+
+# Calculate the demand, supply and dealer rankings for each country using the following:
+# ConsumerRank: net imports / gross * PageRank
+# SupplierRank: net exports / gross * PageRank
+# DealerRank: transits / gross * PageRank
+country_add_info <- country_taxon_trades %>%
+                      group_by(index) %>%
+                      summarise(GROSS = sum(Gross),
+                                NET_IMPORTS = sum(Net_Imports),
+                                NET_EXPORTS = sum(Net_Exports),
+                                TRANSITS = sum(Transits))
 
 vertices <- vertices %>%
-            left_join(trades_by_country %>% 
-                      mutate(pct_import = imports / (imports + exports)) %>% 
-                      select(Importer,pct_import), by=c("index"="Importer")) %>%
-            rename(PCT_IMPORT = pct_import) %>%
-            arrange(desc(PRANK))
+            left_join(country_add_info, country_add_info, by="index") %>%
+            mutate(
+              CRANK = NET_IMPORTS / GROSS * PRANK,
+              R_CRANK = rank(desc(CRANK), ties.method="first"),
+              DRANK = TRANSITS / GROSS * PRANK,
+              R_DRANK = rank(desc(DRANK), ties.method="first"),
+              SRANK = NET_EXPORTS / GROSS * PRANK,
+              R_SRANK = rank(desc(SRANK), ties.method="first")
+            )
 
-# Remove the single trade countries out of the calculations
-cutoff_points <- quantile(vertices$PCT_IMPORT, c(2./5.,3./5.))
-suppliers <- vertices %>% filter(PCT_IMPORT <= cutoff_points[[1]])
-dealers <- vertices %>% filter(PCT_IMPORT > cutoff_points[[1]] & PCT_IMPORT < cutoff_points[[2]])
-consumers <- vertices %>% filter(PCT_IMPORT >= cutoff_points[[2]])
+## ---- end-of-model-pagerank-decompose
 
-to_text <- function (data) {
-  tmp <- data %>% head(5)
-  tmp$TEXT <- sapply(1:nrow(tmp), function (i) { paste0(tmp[i,"NAME"]," (",toOrdinal(tmp[i,"R_PRANK"]),")")})
-  tmp$TEXT
-}
+## ---- model-results
+
+consumers <- vertices %>% arrange(R_CRANK)
+dealers <- vertices %>% arrange(R_DRANK)
+suppliers <- vertices %>% arrange(R_SRANK)
+
 players <- data.frame("Consumers"=to_text(consumers),
                       "Dealers"=to_text(dealers),
                       "Suppliers"=to_text(suppliers))
@@ -944,10 +1122,7 @@ players <- data.frame("Consumers"=to_text(consumers),
 
 ## ---- results
 
-countries <- c("US")
-col <- get_color("red")
-
-get_players <- function(countries, col) {
+get_players <- function(countries, col, type) {
   c_container <- '<div style="display: flex; flex-wrap: wrap; justify-content: space-around">'
   
   for (c in countries) {
@@ -959,11 +1134,17 @@ get_players <- function(countries, col) {
                       c_row$NAME)
     
     # Create Body
-    # 1st get pagerank
+    # 1st get pagerank values
     c_body <- sprintf("<span style='font-size:0.8em'>PageRank:</span> <span class='hl' style='color: %s'>%s (%s)</span><br>",
                       col,
                       toOrdinal(c_row$R_PRANK), 
-                      percent(c_row$PRANK))
+                      percent(round(c_row$PRANK,2)))
+    c_body <- paste0(c_body,
+                     sprintf("<span style='font-size:0.8em'>Consumer/Dealer/Supplier Rankings:</span> <span class='hl' style='color: %s'>%s / %s / %s</span><br>",
+                      col,
+                      toOrdinal(c_row$R_CRANK),
+                      toOrdinal(c_row$R_DRANK),
+                      toOrdinal(c_row$R_SRANK)))
     
     # 2nd get imports and exports
     c_ie <- trades_by_country %>% filter(Importer == c)
@@ -974,22 +1155,21 @@ get_players <- function(countries, col) {
                              comma_format(0)(c_ie$exports)))
     
     # 3rd get most commonly traded species (Those that have been identified)
-    c_animals <- dataset %>% 
-                 filter(Importer == c | Exporter == c) %>%
-                 group_by(Taxon, CommonName) %>%
-                 summarise(total_trades = sum(Qty)) %>%
-                 mutate(Name = ifelse(CommonName == "",Taxon, CommonName)) %>%
-                 arrange(desc(total_trades)) %>%
+    c_animals <- country_taxon_trades %>%
+                 filter(index == c) %>%
+                 arrange_at(vars(type),desc) %>%
                  head(5)
-    c_animals[['Name']] <- sapply(c_animals[['Name']], function(x) { strsplit(x,", ")[[1]][1] })
-    
+
     c_body <- paste0(c_body,
-                     "<span style='font-size:0.8em'>Top Traded Species [Quantity]</span>:<br>")
+                     sprintf("<span style='font-size:0.8em'>Top %s Species [%s]</span>:<br>",
+                             ifelse(type=="Net_Imports", "Imported", 
+                             ifelse(type=="Net_Exports","Exported","Transit")),
+                             ifelse(type %in% c("Net_Imports","Net_Exports"), gsub("_"," ",type), "Quantity"))
     for (i in 1:nrow(c_animals)) {
       c_body <- paste0(c_body,
                        sprintf("%s [%s]<br>",
                                c_animals[[i,"Name"]],
-                               comma_format(0)(c_animals[[i,"total_trades"]])))
+                               comma_format(0)(c_animals[[i,type]])))
     }
     
     c_html <- sprintf(
@@ -1009,9 +1189,12 @@ get_players <- function(countries, col) {
   }
   
   c_container <- paste0(c_container, "</div>",
-                        '<div style="font-size:0.9em; color: var(--font-color-75); text-align:right; padding:1em">Icons courtesy of <a href="https://dribbble.com/shots/1211759-Free-195-Flat-Flags" target="_blank">Muharrem</a> and <a href="https://dribbble.com/shots/4028772-Freebies-Flat-Flags-227" target="_blank">Maria</a></div>')
+                        '<div style="font-size:0.9em; color: var(--font-color-75); text-align:right; padding:1em">Icons courtesy of <a href="http://www.customicondesign.com/free-icons/flag-icon-set/flat-round-world-flag-icon-set/" target="_blank">Custom Icon Design</a></div>')
   
   c_container
 }
 
 ## ---- end-of-results
+
+
+                                                  

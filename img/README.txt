@@ -1,1 +1,1 @@
-Credit to Muharrem Senyil @ https://dribbble.com/shots/1211759-Free-195-Flat-Flags and Maria Soloveva @ https://dribbble.com/shots/4028772-Freebies-Flat-Flags-227
+Credit to Custom Icon Design @ http://www.customicondesign.com/free-icons/flag-icon-set/flat-round-world-flag-icon-set/

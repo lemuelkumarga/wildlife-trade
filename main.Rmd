@@ -23,6 +23,10 @@ a.players {
 }
 
 a.players img {
+    width: 100px;
+    min-width: 100px;
+    height: 100px;
+    min-height: 100px;
     opacity: 1.0;
     filter: saturate(0%);
     -webkit-filter: saturate(0%);
@@ -72,19 +76,16 @@ pander(cols_summary, caption='Wildlife Trade Data - For more info, please visit 
 From the <a href="https://trade.cites.org/cites_trade_guidelines/en-CITES_Trade_Database_Guide.pdf" target="_blank">guide</a> and the above summary, we know that:
 
 1. Each row corresponds to the <span class="hl">total trade</span> between two countries for a particular species at a particular term. This is contrary to popular belief that each row corresponds to one shipment. (See Section 3.1 for more details.)
-2. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on the IUCN Red List.
-3. Terms are <span class="hl">heterogenous</span>. For example, some quantities correspond to bodies, while others correspond to feathers.
-4. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank unit), or in terms of weight/volume/qualitative units.
+2. Terms are <span class="hl">heterogenous</span>. For example, some quantities correspond to bodies, while others correspond to feathers.
+3. Units are also <span class="hl">varied</span>. Quantities can be quoted as distinct counts (i.e. blank unit), or in terms of weight/volume/qualitative units.
+4. Not all the taxonomies are complete. Some rows have missing <span class="hl">Family and Genus</span>. It is important for us to devise a method to fill in these taxonomies so as to determine the quantity traded of each species.
+5. Not all animals in the data are endangered. For example, the <a href="https://en.wikipedia.org/wiki/White-tailed_eagle" target="_blank">white-tailed eagle (Haliaeetus albicilla)</a> is specified as <span class="hl">Least Concern</span> on the IUCN Red List.
 
-As can be seen, some pre-processing would be required before our analysis can proceed. In particular, (3) and (4) need to be standardized to allow comparison across species.
+As can be seen, some pre-processing would be required before our analysis can proceed. In particular, (2) and (3) need to be standardized to allow comparison across species.
 
 ## Pre-Processing
 
 To skip the pre-processing, please click <a href="#exploration">here</a>.
-
-### Restricting the Species
-
-#### Animals Only
 
 In the data, taxonomies with blank <span class="hl">Classes</span> are plants. For the purposes of this analysis, these records (or rows) will be excluded from the dataset.
 
@@ -95,25 +96,14 @@ post_clean_str <- function () {
   cat(sprintf("%i rows removed (%i%% of total)",pre_clean - post_clean,floor((pre_clean - post_clean)/pre_clean * 100)))  
 }
 
-<<pp-restrict-animals>>
-
-post_clean_str()
-```
-
-#### Endangered Only
-
-Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
-
-By integrating the IUCN data, we can subsequently filter non-endangered species out of the CITES dataset.
-```{r}
-<<pp-restrict-endanger>>
+<<pp-animals>>
 
 post_clean_str()
 ```
 
 ### Standardizing the Terms
 
-After restricting the dataset to only endangered species, we need to standardize all the terms below into universal <span class="hl">animal units</span>:
+After limiting the dataset to only animals, we need to standardize all the terms below into universal <span class="hl">animal units</span>:
 
 ```{r}
 <<pp-terms-overview>>
@@ -313,6 +303,71 @@ With this final step, we have reduced over 200 distinct term-unit pairs into a s
 
 post_clean_str()
 ```
+
+### Completing the Taxonomy
+
+One of the problems with incomplete taxonomies is that identical species have different identities within the data. For example, it is possible that an animal was recorded with its species taxonomy during importing, but only with an Order during exporting. In such circumstances, we might misinterpret the former as being consumed, while the latter being obtained from the local wildlife areas. 
+
+To correct for the incomplete taxonomies, we will be using the method below:
+
+```{r}
+grViz(paste0("
+  digraph CompleteTax {
+
+    # Default Specs
+    graph [compound = true, nodesep = .5, ranksep = .25]
+    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled]
+    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    
+    # Input Specs
+    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete-Taxonomy Trade\nfrom Country A to B\nfor Class c and Order o', shape = rectangle]
+
+    # Conclude Specs
+    node [shape = oval]
+    Route_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades from A to B.', fillcolor = '",get_color(1),"']
+    Export_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades from A.', fillcolor = '",get_color(2),"']
+    Import_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades to B.', fillcolor = '",get_color(3),"']
+    All_Y [label = 'Divide the trades proportionally\namong all the Class c, Order o\n trades.', fillcolor = '",get_color(4),"']
+
+    # Trigger Specs
+    node [shape = diamond, fillcolor = '",bg_color,"', fontcolor = '",txt_color,"', penwidth = 1]
+    Route_T [label = 'Does A to B have any taxonomy trades\ncorresponding to Class c and Order o?']
+    { rank = same; Route_T, Route_Y }
+    Export_T [label = 'Does A have any taxonomy exports\ncorresponding to Class c and Order o?']
+    { rank = same; Export_T, Export_Y }
+    Import_T [label = 'Does B have any taxonomy imports\ncorresponding to Class c and Order o??']
+    { rank = same; Import_T, Import_Y }
+
+    # Yes edges
+    Inp -> Route_T
+    edge [arrowhead = 'box', label = 'Yes']
+    Route_T -> Route_Y
+    Export_T -> Export_Y
+    Import_T -> Import_Y
+    
+    # No edges
+    edge [label = '     No']
+    Route_T -> Export_T
+    Export_T -> Import_T
+    Import_T -> All_Y
+
+  }
+"), height=300)
+```
+
+In summary, the methodology above attempts to distribute incomplete taxonomy trades into its species constituents. The approach first analyzes whether there are species of similar natures undergoing the same trade route. If there are, the incomplete taxonomy trades will be distributed amongst the different spcies at existing ratios. If there are none, we subsequently "roll-up" and consider all similar species exported by the country specified under the Exporter column. This process continues until all the incomplete taxonomy trades are mapped to individual species.
+
+### Restricting to Endangered Species
+
+Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
+
+By integrating the IUCN data, we can filter non-endangered species out of the dataset.
+```{r}
+<<pp-endanger>>
+
+post_clean_str()
+```
+
 
 ## Exploration
 
@@ -547,6 +602,10 @@ compare_plot
 
 The diagram above shows all the countries that either France or South Korea traded with. From the diagram, it is clear that <span class="red-text">France</span> has a greater outreach than <span class="orange-text">South Korea</span>, even though the latter has a higher total imports + exports. <span class="hl">This degree of outreach caused the algorithm to promote <span class="red-text">France</span> at the expense of <span class="hl orange-text">South Korea</span>.</span>
 
+#### Decomposing PageRank
+
+% Net Imports times PR, % Net Exports times PR, % Dealed times PR
+
 ### The Major Players
 
 Listed below are the major players detected through the PageRank algorithm. These players have been divided into three groups (<span class="hl">Consumers</span>, <span class="hl">Dealers</span> and <span class="hl">Suppliers</span>) based on their import percentage (with respect to the total imports and exports).
@@ -567,7 +626,7 @@ Consumers are countries that demand wildlife goods. They fall in the top 40th pe
 
 Please scroll through the icons below to find out more about the top 5 consumers:
 
-`r get_players((consumers %>% head(5))$index,get_color("red"))`
+`r get_players((consumers %>% head(5))$index,get_color("red"), type="Net_Imports")`
 
 #### Dealers
 
@@ -583,7 +642,7 @@ Suppliers are countries that provide for wildlife goods. They fall in the bottom
 
 Please scroll through the icons below to find out more about the top 5 suppliers:
 
-`r get_players((suppliers %>% head(5))$index,get_color("purple"))`
+`r get_players((suppliers %>% head(5))$index,get_color("purple"), type="Net_Exports")`
 
 ## Summary of Results
 
@@ -595,6 +654,7 @@ By standardizing measurements through <a href="#the-roll-up-median-approach">the
 
 ## Limitations
 
+* Completing Taxonomy -> Problematic as some of these might not be endangered
 * Wild
 * Unidentified Species
 * Overview
