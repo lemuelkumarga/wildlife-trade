@@ -294,14 +294,21 @@ dataset <- getCacheOrRun(convertAmbiguousTerm, dataset, "standardized_data")
 ## ---- pp-taxon
 
 completeTaxon <- function(dataset) {
-  
+
+  # Condense dataset to speed up processing
+  dataset <- dataset %>% mutate(FromMissingTaxon = FALSE)
+  condenseData <- function(dataset) {
+    dataset %>%
+    group_by(Year, Taxon, Class, Order, Family, Genus, Importer, Exporter, Term, Unit, Purpose, Source, Converted, FromMissingTaxon) %>%
+    summarise(Qty = sum(Qty)) %>%
+    ungroup()
+  }
+  dataset <- condenseData(dataset)
+    
   # Find all missing taxonomy records, sorted by the missing information degree
   missing_taxon <- dataset %>% 
                    filter((Taxon == Class | grepl("spp.",Taxon)) & !is.na(Exporter) & !is.na(Importer)) %>%
-                   group_by_at(vars(colnames(dataset)[!grepl("Qty",colnames(dataset))])) %>%
-                   summarise(Qty = sum(Qty)) %>%
-                   arrange(desc(Genus), desc(Family), desc(Order), desc(Class)) %>%
-                   ungroup()
+                   arrange(desc(Genus), desc(Family), desc(Order), desc(Class))
   
   # Special case for hybrids
   hybrid_taxons <- dataset %>%
@@ -326,8 +333,8 @@ completeTaxon <- function(dataset) {
                                (r$Family == "" | r$Family == Family) &
                                (r$Genus == "" | r$Genus == Genus))
     
-    # If there are no references, no rows are added
-    if (nrow(referenced_taxon) == 0) { return(completed_taxon) }
+    # If there are no references, return an empty row
+    if (nrow(referenced_taxon) == 0) { return(r %>% filter(1==2)) }
     
     # Create a taxonomy dictionary which returns the distribution
     # of complete taxonomies. The granularity will determine
@@ -378,28 +385,33 @@ completeTaxon <- function(dataset) {
   # Insert the missing taxonomies one by one
   insertMissingTaxon <- function(dataset, rows) {
     
+    #Pack the dataset to ensure faster processing
+    condensed_dataset <- dataset %>%
+                          group_by(Taxon, Class, Order, Family, Genus, Exporter, Importer) %>%
+                          summarise(Qty = sum(Qty)) %>%
+                          ungroup()
+    
     # Prepare cores for parallel processing
     n_cores <- detectCores() - 1
     cl <- makeCluster(n_cores, outfile="")
     clusterEvalQ(cl, { library("dplyr"); library("scales")})
-    clusterExport(cl, c("dataset","rows"), environment())
+    clusterExport(cl, c("condensed_dataset","rows"), environment())
     clusterExport(cl, c("convertMissingTaxon"), parent.env(environment()))
     
     new_rs <- parLapply(cl, 1:nrow(rows),function(i) {
                 cat("|")
                 missing_row <- rows[i,]
-                convertMissingTaxon(dataset, missing_row)
+                convertMissingTaxon(condensed_dataset, missing_row)
               })
      
      stopCluster(cl)
     
-     rbind(dataset,rbindlist(new_rs, use.names=TRUE))
+     condenseData(rbind(dataset,rbindlist(new_rs, use.names=TRUE)))
   }
   
   dataset <- dataset %>%
-             mutate(FromMissingTaxon = FALSE) %>%
              filter(!grepl("spp.|hybrid",Taxon) & Taxon != Class)
-  
+ 
   # First insert taxonomies with missing species
   no_species <- missing_taxon %>% filter(Genus != "")
   dataset <- insertMissingTaxon(dataset, no_species)
@@ -414,17 +426,12 @@ completeTaxon <- function(dataset) {
   dataset <- insertMissingTaxon(dataset, no_order)
   
   # Finally, settle the hybrids dataset, which is a smaller subset
-  dataset_hybrid <- dataset_hybrid %>%
-                    mutate(FromMissingTaxon = FALSE)
   dataset_hybrid <- insertMissingTaxon(dataset_hybrid, missing_hybrid)
   dataset <- rbind(dataset, dataset_hybrid)
   
   # Next get taxonomies
   # Condense the dataset
-  dataset %>%
-    group_by(Year, App., Taxon, Class, Order, Family, Genus, Importer, Exporter, Term, Unit, Purpose, Source, Converted, FromMissingTaxon) %>%
-    summarise(Qty = sum(Qty)) %>%
-    ungroup()
+  dataset 
 }
 dataset <- getCacheOrRun(completeTaxon, dataset, "complete_taxon_data")
 
@@ -508,7 +515,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
                                    ifelse(yy == 2011,"07",
                                    ifelse(yy == 2015, "06","11"))) }
   
-  y_shift <- ifelse(iucn_lbl == "Endangered", -350000, -500000)
+  y_shift <- ifelse(iucn_lbl %in% c("Endangered","Critical"), -225000, -350000)
   y <- function (yy) { (trades_by_time %>%
                           filter(IUCNLabel %in% iucn_filter & Year == yy) %>%
                           summarise(total_trades = sum(total_trades)))$total_trades + y_shift }
@@ -538,9 +545,9 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
 
 # Add annotation for each section
 streamgraph_plot <- streamgraph_plot %>%
-                    sg_annotate("Critical", "2014-01-01",2500000, color = fade_color(get_color("red"),0.7)) %>%
-                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
-                    sg_annotate("Vulnerable", "2013-07-01",250000, color = fade_color(get_color("red", 0.3),0.7))
+                    sg_annotate("Critical", "2014-01-01",2000000, color = fade_color(get_color("red"),0.7)) %>%
+                    sg_annotate("Endangered", "2013-05-01",600000, color = fade_color(get_color("red", 0.6),0.7)) %>%
+                    sg_annotate("Vulnerable", "2013-07-01",300000, color = fade_color(get_color("red", 0.3),0.7))
         
 ## ---- end-of-exp-time
 
@@ -601,7 +608,7 @@ sunburst_input <- trades_by_species %>%
                   mutate(Node = ifelse(is.na(CommonName),Taxon, gsub("-"," ",CommonName)),
                          Category = Class,
                          CategorySize = sum(total_trades),
-                         Seq = paste0(Class,Node, sep="-"),
+                         Seq = paste(Class,Node, sep="-"),
                          Depth = 2) %>%
                   ungroup() %>% group_by(Node, Category, CategorySize, Seq, Depth) %>%
                   summarise(Value = sum(total_trades)) %>%
@@ -991,17 +998,17 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
 
 ## ---- model-pagerank-compare
 
-# Get edges only if they have either korea and france but not both
-c_int <- c("FR","KR")
+# Get edges only for neighbors of the two countries of interest
+c_int <- sort(c("ID","EC"))
 tc_edges <- edges %>%
             filter(v1 %in% c_int | v2 %in% c_int) %>%
-            filter(!(v1 == "FR" & v2 == "KR"))
+            filter(!(v1 == c_int[1] & v2 == c_int[2]))
 
 # Get only neighboring vertices
 nodes_int <- unique(c(tc_edges$v1, tc_edges$v2))
-kr_vertice <- (vertices %>% filter(index == "KR"))
-fr_vertice <- (vertices %>% filter(index == "FR"))
-tc_vertices <- vertices %>% filter(index %in% nodes_int & !(index %in% c("KR","FR")))
+V1_vertice <- (vertices %>% filter(index == c_int[1]))
+V2_vertice <- (vertices %>% filter(index == c_int[2]))
+tc_vertices <- vertices %>% filter(index %in% nodes_int & !(index %in% c_int))
 
 # Construct Input
 max_label_char <- 20
@@ -1013,15 +1020,19 @@ circ_input$hjust <- sapply(circ_input$theta, function(t) { if (t <= -90){1} else
 circ_input$theta <- sapply(circ_input$theta, function (t) { if (t <= -90) { t + 180} else {t}})
 
 # Colors
-neighbors_kr <- (tc_edges %>% filter(v1 == "KR" | v2 == "KR") %>% mutate(v = ifelse(v1 == "KR",v2,v1)))$v
-neighbors_fr <- (tc_edges %>% filter(v1 == "FR" | v2 == "FR") %>% mutate(v = ifelse(v1 == "FR",v2,v1)))$v
+neighbors_V1 <- (tc_edges %>% filter(v1 == c_int[1] | v2 == c_int[1]) %>% mutate(v = ifelse(v1 == c_int[1],v2,v1)))$v
+neighbors_V2 <- (tc_edges %>% filter(v1 == c_int[2] | v2 == c_int[2]) %>% mutate(v = ifelse(v1 == c_int[2],v2,v1)))$v
 circ_input$tag <- sapply(tc_vertices$index, function (ix) {
-                    if (ix %in% neighbors_kr & ix %in% neighbors_fr) { "BOTH" }
-                    else if (ix %in% neighbors_kr) { "KR" }
-                    else if (ix %in% neighbors_fr) { "FR" }
+                    if (ix %in% neighbors_V1 & ix %in% neighbors_V2) { "BOTH" }
+                    else if (ix %in% neighbors_V1) { c_int[1] }
+                    else if (ix %in% neighbors_V2) { c_int[2] }
                     else { "NONE" }
                   })
 
+compare_colors <- c(fade_color(txt_color,0.2), color_dictionary[[V1_vertice$REGION]],color_dictionary[[V2_vertice$REGION]])
+names(compare_colors) <- c("BOTH", c_int)
+compare_labels <- c("Both",V1_vertice$NAME,V2_vertice$NAME)
+names(compare_labels) <- c("BOTH",c_int)
 compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 theme_void() +
                 theme_lk(TRUE, TRUE, FALSE, FALSE) +
@@ -1029,10 +1040,10 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 scale_y_continuous(limits=c(0,1.15)) +
                 # Add points, lines and labels of neighboring countries
                 geom_point(alpha=0.5) + 
-                geom_segment(data= circ_input %>% filter(tag %in% c("KR","FR")), 
+                geom_segment(data= circ_input %>% filter(tag %in% c_int), 
                              aes(xend=x, y=0, yend=1, alpha=VALUE), 
                              size=0.5) +
-                geom_text(data= circ_input %>% filter(tag %in% c("KR","FR")),
+                geom_text(data= circ_input %>% filter(tag %in% c_int),
                           aes(label=label, angle=theta, hjust=hjust), 
                           y = 1.05, 
                           size=2.2,
@@ -1041,12 +1052,8 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 scale_size_continuous(name = "PageRank",
                                       labels = percent) +
                 scale_color_manual(name="Traded With",
-                                   values = c("BOTH" = fade_color(txt_color,0.2),
-                                              "KR" = color_dictionary[[kr_vertice$REGION]], 
-                                              "FR" = color_dictionary[[fr_vertice$REGION]]),
-                                   labels = c("BOTH" = "Both",
-                                              "KR" = kr_vertice$NAME,
-                                              "FR" = fr_vertice$NAME)) +
+                                   values = compare_colors,
+                                   labels = compare_labels) +
                 scale_alpha_continuous(guide="none") +
                 # Change to coordinate polar
                 coord_polar()
@@ -1110,6 +1117,12 @@ vertices <- vertices %>%
 
 ## ---- model-results
 
+to_text <- function (data) {
+  tmp <- data %>% head(5)
+  tmp$TEXT <- sapply(1:nrow(tmp), function (i) { paste0(tmp[i,"NAME"]," (",toOrdinal(tmp[i,"R_PRANK"]),")")})
+  tmp$TEXT
+}
+
 consumers <- vertices %>% arrange(R_CRANK)
 dealers <- vertices %>% arrange(R_DRANK)
 suppliers <- vertices %>% arrange(R_SRANK)
@@ -1135,16 +1148,17 @@ get_players <- function(countries, col, type) {
     
     # Create Body
     # 1st get pagerank values
-    c_body <- sprintf("<span style='font-size:0.8em'>PageRank:</span> <span class='hl' style='color: %s'>%s (%s)</span><br>",
-                      col,
-                      toOrdinal(c_row$R_PRANK), 
-                      percent(round(c_row$PRANK,2)))
-    c_body <- paste0(c_body,
-                     sprintf("<span style='font-size:0.8em'>Consumer/Dealer/Supplier Rankings:</span> <span class='hl' style='color: %s'>%s / %s / %s</span><br>",
-                      col,
-                      toOrdinal(c_row$R_CRANK),
-                      toOrdinal(c_row$R_DRANK),
-                      toOrdinal(c_row$R_SRANK)))
+    get_rank_text <- function(rankName, rankCol) {
+      sprintf("<span style='font-size:0.8em'>%s:</span> <span class='hl' style='color: %s'>%s</span><br>",
+              rankName,
+              col,
+              toOrdinal(c_row[[paste0("R_",rankCol)]])
+              )
+    }
+    c_body <- get_rank_text("PageRank","PRANK") %>%
+              paste0(get_rank_text("ConsumerRank","CRANK")) %>%
+              paste0(get_rank_text("DealerRank","DRANK")) %>%
+              paste0(get_rank_text("SupplierRank","SRANK"))
     
     # 2nd get imports and exports
     c_ie <- trades_by_country %>% filter(Importer == c)
@@ -1157,6 +1171,8 @@ get_players <- function(countries, col, type) {
     # 3rd get most commonly traded species (Those that have been identified)
     c_animals <- country_taxon_trades %>%
                  filter(index == c) %>%
+                 left_join(unique(select(dataset, Taxon, CommonName)), by="Taxon") %>%
+                 mutate(Name = ifelse(is.na(CommonName), Taxon, CommonName)) %>%
                  arrange_at(vars(type),desc) %>%
                  head(5)
 
@@ -1164,7 +1180,7 @@ get_players <- function(countries, col, type) {
                      sprintf("<span style='font-size:0.8em'>Top %s Species [%s]</span>:<br>",
                              ifelse(type=="Net_Imports", "Imported", 
                              ifelse(type=="Net_Exports","Exported","Transit")),
-                             ifelse(type %in% c("Net_Imports","Net_Exports"), gsub("_"," ",type), "Quantity"))
+                             ifelse(type %in% c("Net_Imports","Net_Exports"), gsub("_"," ",type), "Quantity")))
     for (i in 1:nrow(c_animals)) {
       c_body <- paste0(c_body,
                        sprintf("%s [%s]<br>",
