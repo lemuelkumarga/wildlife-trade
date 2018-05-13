@@ -569,8 +569,8 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
 # Add annotation for each section
 streamgraph_plot <- streamgraph_plot %>%
                     sg_annotate("Critical", "2014-01-01",2000000, color = fade_color(get_color("red"),0.7)) %>%
-                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
-                    sg_annotate("Vulnerable", "2013-07-01",300000, color = fade_color(get_color("red", 0.3),0.7))
+                    sg_annotate("Endangered", "2013-05-01",900000, color = fade_color(get_color("red", 0.6),0.7)) %>%
+                    sg_annotate("Vulnerable", "2013-07-01",200000, color = fade_color(get_color("red", 0.3),0.7))
         
 ## ---- end-of-exp-time
 

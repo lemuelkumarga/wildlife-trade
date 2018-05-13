@@ -90,15 +90,15 @@ To skip the pre-processing, please click <a href="#exploration">here</a>.
 In the data, taxonomies with blank <span class="hl">Classes</span> are plants. For the purposes of this analysis, these records (or rows) will be excluded from the dataset.
 
 ```{r}
-pre_clean <- nrow(dataset)
-post_clean_str <- function () {
-  post_clean <- nrow(dataset)
-  cat(sprintf("%i rows removed (%i%% of total)",pre_clean - post_clean,floor((pre_clean - post_clean)/pre_clean * 100)))  
+pre_remove <- nrow(dataset)
+post_remove_str <- function () {
+  post_remove <- nrow(dataset)
+  cat(sprintf("%i rows removed (%i%% of total)",pre_remove - post_remove,floor((pre_remove - post_remove)/pre_remove * 100)))  
 }
 
 <<pp-animals>>
 
-post_clean_str()
+post_remove_str()
 ```
 
 ### Standardizing the Terms
@@ -357,15 +357,21 @@ grViz(paste0("
 
 In summary, the methodology above attempts to distribute incomplete taxonomy trades into its species constituents. The approach first analyzes whether there are species of similar natures undergoing the same trade route. If there are, the incomplete taxonomy trades will be distributed amongst the different spcies at existing ratios. If there are none, we subsequently "roll-up" and consider all similar species exported by the country specified under the Exporter column. This process continues until all the incomplete taxonomy trades are mapped to individual species.
 
+```{r}
+<<pp-taxon>>
+```
+
 ### Restricting to Endangered Species
 
 Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
 By integrating the IUCN data, we can filter non-endangered species out of the dataset.
 ```{r}
+pre_remove <- nrow(dataset)
+
 <<pp-endanger>>
 
-post_clean_str()
+post_remove_str()
 ```
 
 ### Adjusting Qualitatively
