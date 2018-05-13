@@ -368,6 +368,13 @@ By integrating the IUCN data, we can filter non-endangered species out of the da
 post_clean_str()
 ```
 
+### Adjusting Qualitatively
+
+#### The European Eel Black Market
+
+```{r}
+<<pp-europe-eel>>
+```
 
 ## Exploration
 

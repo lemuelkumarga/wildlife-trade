@@ -299,7 +299,7 @@ completeTaxon <- function(dataset) {
   dataset <- dataset %>% mutate(FromMissingTaxon = FALSE)
   condenseData <- function(dataset) {
     dataset %>%
-    group_by(Year, Taxon, Class, Order, Family, Genus, Importer, Exporter, Term, Unit, Purpose, Source, Converted, FromMissingTaxon) %>%
+    group_by(Year, Taxon, Class, Order, Family, Genus, Importer, Exporter, Origin, Term, Unit, Purpose, Source, Converted, FromMissingTaxon) %>%
     summarise(Qty = sum(Qty)) %>%
     ungroup()
   }
@@ -462,6 +462,29 @@ dataset <- dataset %>%
 
 ## ---- end-of-pp-endanger
 
+## ---- pp-europe-eel
+
+anguilla_data <- dataset %>% filter(Taxon == "Anguilla anguilla" & Origin != "")
+
+anguilla_analysis <- anguilla_data %>% group_by(Origin, Importer, Exporter) %>% summarise(Qty = sum(Qty)) %>% ungroup()
+anguilla_analysis <- anguilla_analysis %>% 
+  left_join(anguilla_analysis %>% select(Importer, Exporter, QtyFromOrigin = Qty), by=c("Origin"="Exporter","Exporter"="Importer")) %>%
+  mutate(Transit = Exporter,
+         Exporter = Origin,
+         QtyToTransit = ifelse(is.na(QtyFromOrigin),0,QtyFromOrigin),
+         QtyFromTransit = Qty
+         ) %>%
+  select(Exporter, QtyToTransit, Transit, QtyFromTransit, Importer)
+
+anguilla_blackmkt <- anguilla_data %>% 
+  mutate(Importer = Exporter,
+         Exporter = Origin) 
+
+dataset <- rbind(dataset, anguilla_blackmkt)
+
+## ---- end-of-pp-europe-eel
+
+
 # Exploration ----
 
 ## ---- exp-time
@@ -515,7 +538,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
                                    ifelse(yy == 2011,"07",
                                    ifelse(yy == 2015, "06","11"))) }
   
-  y_shift <- ifelse(iucn_lbl %in% c("Endangered","Critical"), -225000, -350000)
+  y_shift <- ifelse(iucn_lbl %in% "Endangered", -225000, -400000)
   y <- function (yy) { (trades_by_time %>%
                           filter(IUCNLabel %in% iucn_filter & Year == yy) %>%
                           summarise(total_trades = sum(total_trades)))$total_trades + y_shift }
@@ -546,7 +569,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
 # Add annotation for each section
 streamgraph_plot <- streamgraph_plot %>%
                     sg_annotate("Critical", "2014-01-01",2000000, color = fade_color(get_color("red"),0.7)) %>%
-                    sg_annotate("Endangered", "2013-05-01",600000, color = fade_color(get_color("red", 0.6),0.7)) %>%
+                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
                     sg_annotate("Vulnerable", "2013-07-01",300000, color = fade_color(get_color("red", 0.3),0.7))
         
 ## ---- end-of-exp-time
@@ -999,7 +1022,7 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
 ## ---- model-pagerank-compare
 
 # Get edges only for neighbors of the two countries of interest
-c_int <- sort(c("ID","EC"))
+c_int <- sort(c("FR","EC"))
 tc_edges <- edges %>%
             filter(v1 %in% c_int | v2 %in% c_int) %>%
             filter(!(v1 == c_int[1] & v2 == c_int[2]))
