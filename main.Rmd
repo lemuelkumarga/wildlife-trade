@@ -374,14 +374,6 @@ pre_remove <- nrow(dataset)
 post_remove_str()
 ```
 
-### Adjusting Qualitatively
-
-#### The European Eel Black Market
-
-```{r}
-<<pp-europe-eel>>
-```
-
 ## Exploration
 
 #### Evolution Across Time
@@ -503,7 +495,7 @@ grViz(paste0("
     Country_B -> Country_C [ label='99' ]
     
   }
-"), height=50)
+"), width=309, height=50)
 ```
 
 In such a scenario, <span class="color-1-text">A</span> will have a net export of 100, B a net import of 1 and <span class="color-3-text">C</span> a net import of 99. Using the net import/export approach, <span class="color-2-text">B</span> is the least important player. However, in actuality, <span class="color-2-text">B</span> should be the most pivotal country as it is involved in all 199 trades. Hence, a better approach is required.
@@ -535,7 +527,7 @@ grViz(paste0("
     Country_A -> Country_D [ label='  200' ]
     Country_D -> Country_E [ label='  99' ]
   }
-"), height=200)
+"), width=173, height=200)
 ```
 
 Using the imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
@@ -672,7 +664,7 @@ By standardizing measurements through <a href="#the-roll-up-median-approach">the
 
 ## Limitations
 
-* Completing Taxonomy -> Problematic as some of these might not be endangered
+* Black Market
 * Wild
 * Unidentified Species
 * Overview

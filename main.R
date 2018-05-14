@@ -19,7 +19,6 @@ packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR","data.tab
 load_or_install.packages(packages)
 
 data_dir <- "data/"
-cache_dir <- "cache/"
 specs_dir <- "specs/"
 
 ## ---- end-of-init
@@ -27,16 +26,8 @@ specs_dir <- "specs/"
 # About the Data ----
 ## ---- data-overview
 
-# Run only if cache does not exist
-# Cache is used as certain pre-processing takes an extensive amount of time
-getCacheOrRun <- function(f, dataset, cache_file) {
-  cache_file <- paste0(cache_dir,cache_file,".RDS")
-  if (file.exists(cache_file)) { readRDS(cache_file) }
-  else { dataset <- f(dataset); saveRDS(dataset, cache_file); dataset }
-}
-
 # Load Data
-loadDataset <- function(dataset) {
+dataset <- cache("2001_2015_dataset",list(),function() {
   dataset <- read.csv(paste0(data_dir,"cites_2001.csv"))
   for (yy in 2002:2015) {
     dataset <- rbind(dataset, read.csv(paste0(data_dir,"cites_",yy,".csv")))
@@ -50,8 +41,8 @@ loadDataset <- function(dataset) {
   left_join(read.csv(paste0(specs_dir,"cites_source.csv")), by="Source") %>%
   select(-Source) %>%
   rename(Source = Explanation)
-}
-dataset <- getCacheOrRun(loadDataset,dataset, "2001_2015_dataset")
+})
+
 
 cols_summary <- data_overview(dataset)
 ## ---- end-of-data-overview
@@ -78,7 +69,7 @@ dataset <- dataset %>%
 
 ## ---- pp-to-si
 
-convertToSI <- function(dataset) {
+dataset <- cache("si_converted_data", list(dataset=dataset), function(dataset) {
   # A dictionary for converting scientific units to SI
   # First item correspond to the SI unit
   # and second the conversion factor
@@ -104,8 +95,8 @@ convertToSI <- function(dataset) {
   }
   
   dataset
-}
-dataset <- getCacheOrRun(convertToSI, dataset, "si_converted_data")
+})
+
 
 ## ---- end-of-pp-to-si
 
@@ -254,11 +245,9 @@ convertViaMedian <- function(data, target) {
   return(data)
 }
 
-standardizeUnits <- function(dataset) {
+dataset <- cache("units_standardized_data", list(dataset=dataset), function(dataset) {
   convertViaMedian(dataset, target_unit %>% select(Term, Unit))
-}
-
-dataset <- getCacheOrRun(standardizeUnits, dataset, "units_standardized_data")
+})
 
 ## ---- end-of-pp-term-unit-final
 
@@ -282,18 +271,16 @@ dataset <- dataset %>%
 
 ## ---- pp-term-ambiguous-convert
 
-convertAmbiguousTerm <- function(dataset) {
+dataset <- cache("standardized_data", list(dataset=dataset),function(dataset) {
   target <- data_frame(Term = "animal")
   convertViaMedian(dataset, target)
-}
-
-dataset <- getCacheOrRun(convertAmbiguousTerm, dataset, "standardized_data")
+})
 
 ## ---- end-of-pp-term-ambiguous-convert
 
 ## ---- pp-taxon
 
-completeTaxon <- function(dataset) {
+dataset <- cache("complete_taxon_data", list(dataset=dataset),function(dataset) {
 
   # Condense dataset to speed up processing
   dataset <- dataset %>% mutate(FromMissingTaxon = FALSE)
@@ -432,8 +419,7 @@ completeTaxon <- function(dataset) {
   # Next get taxonomies
   # Condense the dataset
   dataset 
-}
-dataset <- getCacheOrRun(completeTaxon, dataset, "complete_taxon_data")
+})
 
 ## ---- end-of-pp-taxon
 
@@ -461,29 +447,6 @@ dataset <- dataset %>%
            inner_join(iucn_dataset, by="Taxon")
 
 ## ---- end-of-pp-endanger
-
-## ---- pp-europe-eel
-
-anguilla_data <- dataset %>% filter(Taxon == "Anguilla anguilla" & Origin != "")
-
-anguilla_analysis <- anguilla_data %>% group_by(Origin, Importer, Exporter) %>% summarise(Qty = sum(Qty)) %>% ungroup()
-anguilla_analysis <- anguilla_analysis %>% 
-  left_join(anguilla_analysis %>% select(Importer, Exporter, QtyFromOrigin = Qty), by=c("Origin"="Exporter","Exporter"="Importer")) %>%
-  mutate(Transit = Exporter,
-         Exporter = Origin,
-         QtyToTransit = ifelse(is.na(QtyFromOrigin),0,QtyFromOrigin),
-         QtyFromTransit = Qty
-         ) %>%
-  select(Exporter, QtyToTransit, Transit, QtyFromTransit, Importer)
-
-anguilla_blackmkt <- anguilla_data %>% 
-  mutate(Importer = Exporter,
-         Exporter = Origin) 
-
-dataset <- rbind(dataset, anguilla_blackmkt)
-
-## ---- end-of-pp-europe-eel
-
 
 # Exploration ----
 
@@ -538,7 +501,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
                                    ifelse(yy == 2011,"07",
                                    ifelse(yy == 2015, "06","11"))) }
   
-  y_shift <- ifelse(iucn_lbl %in% "Endangered", -225000, -400000)
+  y_shift <- ifelse(iucn_lbl %in% "Endangered", -225000, -280000)
   y <- function (yy) { (trades_by_time %>%
                           filter(IUCNLabel %in% iucn_filter & Year == yy) %>%
                           summarise(total_trades = sum(total_trades)))$total_trades + y_shift }
@@ -569,7 +532,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
 # Add annotation for each section
 streamgraph_plot <- streamgraph_plot %>%
                     sg_annotate("Critical", "2014-01-01",2000000, color = fade_color(get_color("red"),0.7)) %>%
-                    sg_annotate("Endangered", "2013-05-01",900000, color = fade_color(get_color("red", 0.6),0.7)) %>%
+                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
                     sg_annotate("Vulnerable", "2013-07-01",200000, color = fade_color(get_color("red", 0.3),0.7))
         
 ## ---- end-of-exp-time
@@ -1022,7 +985,7 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
 ## ---- model-pagerank-compare
 
 # Get edges only for neighbors of the two countries of interest
-c_int <- sort(c("FR","EC"))
+c_int <- sort(c("JP","EC"))
 tc_edges <- edges %>%
             filter(v1 %in% c_int | v2 %in% c_int) %>%
             filter(!(v1 == c_int[1] & v2 == c_int[2]))
