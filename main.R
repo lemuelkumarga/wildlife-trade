@@ -767,11 +767,14 @@ leaflet_export_plot <- get_leaflet_plot(trades_by_country, FALSE)
 
 ## ---- model-graphs
 
+max_label_char <- 20
 vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
             sort() %>%
             { data.frame(index=.)} %>%
             inner_join(world_borders@data, by=c("index"="ISO2")) %>%
-            mutate(REGION = paste0("REGION-",REGION),
+            # Prevent names from going too long
+            mutate(NAME_SHORT = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
+                   REGION = paste0("REGION-",REGION),
                    SUBREGION = paste0("SUBREGION-",SUBREGION)) %>%
             arrange(REGION, SUBREGION)
 
@@ -806,7 +809,7 @@ hierarchy <- rbind(input_vertices %>% mutate(parent="root") %>% select(parent,ch
 
 # Node Specifications
 nodes <- data.frame(name = unique(c(as.character(hierarchy$parent), as.character(hierarchy$child)))) %>%
-         left_join(input_vertices %>% select(index, label=NAME, region=REGION, value=VALUE), by=c("name"="index")) %>%
+         left_join(input_vertices %>% select(index, label=NAME_SHORT, region=REGION, value=VALUE), by=c("name"="index")) %>%
          mutate(ranking=rank(value,ties.method="first"))
 
 # Edge Specifications
@@ -876,7 +879,7 @@ edge_bundle_plot <- edge_bundle_plot +
                     scale_color_manual(values=color_dictionary, guide="none") +
                     scale_alpha_continuous(limits=c(max(nodes$ranking)-110,max(nodes$ranking)-10), na.value=0.1, guide="none") +
                     # Make sure labels are viewable
-                    expand_limits(x = c(-1.5, 1.5), y = c(-1.5, 1.5))
+                    expand_limits(x = c(-1.25, 1.25), y = c(-1.25, 1.25))
                 
 ## ---- end-of-model-graphs
 
@@ -971,10 +974,10 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
                            colour = ltxt_color,
                            arrow = arrow(length = unit(0.2,"cm"), type="closed")) +
               # Add imports + exports ranks
-              geom_text(aes(x=R_VAL, y=-0.1, label=NAME), angle=90, hjust=1, size = 3) +
+              geom_text(aes(x=R_VAL, y=-0.1, label=NAME_SHORT), angle=90, hjust=1, size = 3) +
               geom_point(aes(x=R_VAL, y=0, size=Z_VAL), alpha=0.5) +
               # Add pagerank probabilities
-              geom_text(aes(x=R_PRANK, y=1.1, label=NAME), angle=90, hjust=0, size = 3) + 
+              geom_text(aes(x=R_PRANK, y=1.1, label=NAME_SHORT), angle=90, hjust=0, size = 3) + 
               geom_point(aes(x=R_PRANK, y=1.0, size=Z_PRANK), alpha=0.5) +
               # Add arrows
               geom_segment(aes(x=R_VAL, xend=R_PRANK, y=0.1, yend=0.9),
@@ -997,10 +1000,9 @@ V2_vertice <- (vertices %>% filter(index == c_int[2]))
 tc_vertices <- vertices %>% filter(index %in% nodes_int & !(index %in% c_int))
 
 # Construct Input
-max_label_char <- 20
 circ_input <- tc_vertices %>%
               mutate(x = rank(desc(PRANK),ties.method="first"),
-                     label = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
+                     label = NAME_SHORT,
                      theta = 90 - x / nrow(tc_vertices) * 360)
 circ_input$hjust <- sapply(circ_input$theta, function(t) { if (t <= -90){1} else {0}})
 circ_input$theta <- sapply(circ_input$theta, function (t) { if (t <= -90) { t + 180} else {t}})
@@ -1046,7 +1048,7 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
 
 ## ---- end-of-model-pagerank-compare
 
-## ---- model-pagerank-decompose
+## ---- model-pagerank-decompose-overview
 
 # Calculate the Net Exports and Imports for each country at a specified level of taxonomy granularity
 net_gross_p_country <- function(granularity="Taxon") {
@@ -1099,14 +1101,85 @@ vertices <- vertices %>%
               R_SRANK = rank(desc(SRANK), ties.method="first")
             )
 
-## ---- end-of-model-pagerank-decompose
+## ---- end-of-model-pagerank-decompose-overview
+
+## ---- model-pagerank-decompose-leaf
+
+# Normalize each of the ranks so that totals of each rank = 1
+leaf_inputs <- vertices %>%
+                mutate(
+                  CRANK = CRANK / sum(CRANK),
+                  DRANK = DRANK / sum(DRANK),
+                  SRANK = SRANK / sum(SRANK)
+                )
+
+# Across each country, normalize to determine the degrees of contribution
+# as a Consumer, Dealer and Supplier
+n_show <- 12
+leaf_inputs$MAXR <- sapply(1:nrow(leaf_inputs), function(i) {
+  max(leaf_inputs[i,"CRANK"],leaf_inputs[i,"DRANK"],leaf_inputs[i,"SRANK"])
+})
+
+# Normalize between the three ranks to make sure that plot is properly "zoomed"
+# as free_y is not available for polar coordinates
+leaf_inputs <- leaf_inputs %>%
+                arrange(desc(PRANK)) %>%
+                head(n_show) %>%
+                mutate(
+                  CRANK = CRANK / MAXR,
+                  DRANK = DRANK / MAXR,
+                  SRANK = SRANK / MAXR,
+                  CLOSE = CRANK
+                ) %>%
+                gather("Key","Value", CRANK, DRANK, SRANK, CLOSE) %>%
+                mutate(
+                  Key = ifelse(Key == "CRANK",0,
+                               ifelse(Key == "DRANK",120,
+                                      ifelse(Key == "SRANK",240,
+                                             ifelse(Key == "CLOSE",360,0))))
+                ) %>%
+                select(NAME, REGION, PRANK, Key, Value)
+leaf_inputs$NAME <- factor(leaf_inputs$NAME, levels=unique(leaf_inputs$NAME))
+
+leaf_plot <- ggplot(leaf_inputs, aes(x=Key, y=Value, fill=REGION, color=REGION)) + 
+              coord_polar(start=60/180*pi) +
+              theme_lk(TRUE, TRUE, FALSE, FALSE) + 
+              theme(
+                axis.line.x = element_blank(),
+                axis.ticks.x = element_blank(),
+                axis.title.x = element_blank(),
+                axis.text.x = element_text(colour=ltxt_color, size = 8, angle=c(-60,0,60)),
+                panel.grid.major.x = element_line(colour=fade_color(txt_color,0.2)),
+                axis.line.y = element_blank(),
+                axis.ticks.y = element_blank(),
+                axis.title.y = element_blank(),
+                axis.text.y = element_blank(),
+                panel.grid.major.y = element_blank(),
+                strip.background = element_blank(),
+                strip.text.x = element_blank()
+              ) + 
+              scale_x_continuous(limits=c(0,360), 
+                                 breaks = c(0,120,240), 
+                                 labels=c("Consumer","Dealer","Supplier"),
+                                 minor_breaks = NULL) +
+              scale_y_continuous(limits=c(0,NA)) +
+              scale_fill_manual(values = color_dictionary, guide = "none") + 
+              scale_color_manual(values = color_dictionary,guide = "none") +
+              geom_polygon(alpha=0.2, size=0) + 
+              geom_text(data=leaf_inputs %>% select(NAME, REGION) %>% unique(),
+                        aes(label=NAME),
+                        x=0,y=0, 
+                        family=def_font,
+                        alpha=0.9) + 
+              facet_wrap(~NAME)
+
+## ---- end-of-model-pagerank-decompose-leaf
 
 ## ---- model-results
 
 to_text <- function (data) {
   tmp <- data %>% head(5)
-  tmp$TEXT <- sapply(1:nrow(tmp), function (i) { paste0(tmp[i,"NAME"]," (",toOrdinal(tmp[i,"R_PRANK"]),")")})
-  tmp$TEXT
+  tmp$NAME
 }
 
 consumers <- vertices %>% arrange(R_CRANK)
@@ -1121,8 +1194,8 @@ players <- data.frame("Consumers"=to_text(consumers),
 
 ## ---- results
 
-get_players <- function(countries, col, type) {
-  c_container <- '<div style="display: flex; flex-wrap: wrap; justify-content: space-around">'
+get_players <- function(countries, col, type, asterisks=c()) {
+  c_container <- '<div class="players-container">'
   
   for (c in countries) {
     c_row <- vertices %>% filter(index == c)
@@ -1167,11 +1240,32 @@ get_players <- function(countries, col, type) {
                              ifelse(type=="Net_Imports", "Imported", 
                              ifelse(type=="Net_Exports","Exported","Transit")),
                              ifelse(type %in% c("Net_Imports","Net_Exports"), gsub("_"," ",type), "Quantity")))
+    
+    c_asterisk <- ""
     for (i in 1:nrow(c_animals)) {
+      animal_name <- c_animals[[i,"Name"]]
+      animal_count <- c_animals[[i,type]]
+      
+      has_asterisk <- animal_name %in% names(asterisks[[c]])
+      asterisk_index <- ifelse(has_asterisk, match(animal_name, names(asterisks[[c]])), "")
+      
       c_body <- paste0(c_body,
-                       sprintf("%s [%s]<br>",
-                               c_animals[[i,"Name"]],
-                               comma_format(0)(c_animals[[i,type]])))
+                       sprintf("%s<sup>%s</sup> [%s]<br>",
+                               animal_name,
+                               asterisk_index,
+                               comma_format(0)(animal_count)))
+      
+      # Add disclaimers if necessary
+      if (has_asterisk) {
+        c_asterisk <- paste0(c_asterisk,
+                             sprintf("<sup>%s</sup>%s<br>",
+                                asterisk_index,
+                                asterisks[[c]][animal_name]))
+      }
+    }
+    
+    if (c_asterisk != "") {
+      c_body <- paste0(c_body,"<br><div style='font-size:0.7em; line-height: 1.15;'>",c_asterisk,"</div>")
     }
     
     c_html <- sprintf(
