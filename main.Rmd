@@ -331,7 +331,7 @@ grViz(paste0("
     edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
     
     # Input Specs
-    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete Taxonomy Trade\nfrom Country A to B\nfor Class c and Order o', shape = rectangle]
+    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete Taxonomy Trades from Country A to B\nfor Class c and Order o', shape = rectangle]
 
     # Conclude Specs
     node [shape = oval]
@@ -363,7 +363,7 @@ grViz(paste0("
     Import_T -> All_Y
 
   }
-"), height=400)
+"), height=500)
 ```
 
 In summary, the methodology above distributes incomplete taxonomy trades to their related species. The approach first analyzes whether there are species of similar natures undergoing the same trade route. If there are, the incomplete taxonomy trades will be distributed amongst the species at existing ratios. If there are none, we subsequently "roll-up" and consider the species exported by the Exporter. This process continues until all the incomplete taxonomy trades are attributed to their respective species.
@@ -382,7 +382,7 @@ taxon_remove$toc()
 
 ### Restricting to Endangered Species
 
-Endangered status of species are located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
+A species's endangered status is located in the IUCN Red List database. Due to licensing restrictions, the data could not be uploaded for public view. However, one is free to create an account and download the csv from <a href="http://www.iucnredlist.org/search/saved?id=90695" target="_blank">here</a>.
 
 By integrating the IUCN data, we can filter non-endangered species out of the dataset.
 ```{r}
@@ -417,7 +417,7 @@ The waffle chart below highlights the purposes behind endangered wildlife trade:
 waffle_plot
 ```
 
-Shockingly, trading due to <span class="hl red-text">commercial</span> reasons account for over <span class="hl red-text">94%</span> of all trades! In other words, for every 1 animal traded for <span class="hl green-text">conservation</span> purpose, 188 trades are being conducted for profit-making. It seems that conservationists are having difficulties catching up with excess capitalism.
+Shockingly, trading due to <span class="hl red-text">commercial</span> reasons account for over <span class="hl red-text">94%</span> of all trades! In other words, for every 1 animal traded for <span class="hl green-text">conservation</span> purposes, 188 trades are being conducted for profit-making. It seems that conservationists are having difficulties catching up with excess capitalism.
 
 #### Most Traded Species
 
@@ -441,7 +441,7 @@ htmlwidgets::onRender(
 
 ```
 
-By scrolling through the chart above, the <span class="hl yellow-text">Anthozoa</span> class account for close to <span class="hl yellow-text">33%</span> of the total trades. Some examples of species belonging to this class are soft and hard corals. The well-publicized <span class="hl blue-text">African Elephant</span>, belonging to the <span class="hl blue-text">Mammalia</span> class, interestingly account for less than 0.4% of the total trades.
+By scrolling through the chart above, we know that <span class="hl yellow-text">Anthozoa</span> accounts for close to <span class="hl yellow-text">33%</span> of the total trades. Some examples of species belonging to this class are soft and hard corals. The well-publicized <span class="hl blue-text">African Elephant</span>, belonging to the <span class="hl blue-text">Mammalia</span> class, interestingly accounts for less than 0.4% of the total trades.
 
 #### Demand Hotspots
 
@@ -705,7 +705,7 @@ To find out more about each country's trading activity, please hover or click on
 
 ## Summary of Results
 
-By standardizing measurements through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
+By standardizing terms through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
 
 * <span class="hl">Consumers</span> are countries which generate the demand for wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
 * <span class="hl">Dealers</span> are countries which connect suppliers to consumers. More stringent measures can be set up in the trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
