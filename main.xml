@@ -1,7 +1,7 @@
 <project>
   <folder>wildlife-trade</folder>
   <title>Identifying Major Players in Endangered Wildlife Trade</title>
-  <excerpt>Over the past few decades, nature is increasingly under threat from overconsumption and excess capitalism. In particular, our greed is shrinking wildlife diversity and population. In this study, we aim to identify the major players driving endangered wildlife trading.</excerpt>
+  <excerpt>Over the past few decades, nature is increasingly under threat from overconsumption and excess capitalism. In particular, our greed is shrinking wildlife diversity and population. In this study, we will aim to tackle this issue by identifying the major players behind endangered wildlife trading.</excerpt>
   <date>2018-05</date>
   <algo>PageRank</algo>
   <code>R</code>
