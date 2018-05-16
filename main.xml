@@ -1,11 +1,11 @@
 <project>
-  <folder>R-template</folder>
-  <title>Title 1</title>
-  <excerpt>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus pharetra dolor a aliquam tempus. Suspendisse nulla nisi, fringilla a rhoncus in, blandit eget tellus. In porttitor lorem ut risus pellentesque, id facilisis enim scelerisque.</excerpt>
-  <date>YYYY-MM</date>
-  <algo>Algorithm</algo>
+  <folder>wildlife-trade</folder>
+  <title>Identifying Major Players in Endangered Wildlife Trade</title>
+  <excerpt>Over the past few decades, nature is increasingly under threat from overconsumption and excess capitalism. In particular, our greed is shrinking wildlife diversity and population. In this study, we aim to identify the major players driving endangered wildlife trading.</excerpt>
+  <date>2018-05</date>
+  <algo>PageRank</algo>
   <code>R</code>
-  <color></color>
-  <data>https://github.com/lemuelkumarga/R-template/tree/master/data</data>
-  <github>https://github.com/lemuelkumarga/R-template.git</github>
+  <color>green</color>
+  <data>https://github.com/lemuelkumarga/wildlife-trade/tree/master/data</data>
+  <github>https://github.com/lemuelkumarga/wildlife-trade.git</github>
 </project>

@@ -78,7 +78,7 @@ We will be using wildlife trade data from CITES for the period of 2001 to 2015, 
 
 Listed below is an overview of the CITES data:
 ```{r}
-<<data-overview>>
+<<data-about>>
   
 pander(cols_summary, caption='Wildlife Trade Data - For more info, please visit <a href="https://trade.cites.org/" target="_blank">CITES Trade Database</a>')
 ```
@@ -100,15 +100,15 @@ To skip the pre-processing, please click <a href="#exploration">here</a>.
 Firstly, let us exclude plants from the scope of this analysis:
 
 ```{r}
-pre_remove <- nrow(dataset)
-post_remove_str <- function () {
-  post_remove <- nrow(dataset)
-  cat(sprintf("%i rows removed (%i%% of total)",pre_remove - post_remove,floor((pre_remove - post_remove)/pre_remove * 100)))  
-}
+animal_remove <- tictoc(function() { nrow(dataset) },
+                        function(old, new) {
+                          cat(sprintf("%s rows removed (%i%% of total)",comma(old - new),floor((old - new)/old * 100)))  
+                        })
+animal_remove$tic()
 
 <<pp-animals>>
 
-post_remove_str()
+animal_remove$toc()
 ```
 
 ### Standardizing the Terms
@@ -129,21 +129,22 @@ cat(output_str)
 ```
 
 #### Scientific Units
-The first thing to note is that not all of the <span class="hl">units</span> are SI (e.g. <span class="hl">cm, g and litres</span>). This is relatively straightforward to fix:
+The first thing to note is that not all <span class="hl">units</span> are SI (e.g. <span class="hl">cm, g and litres</span>). This is relatively straightforward to fix:
 
 ```{r}
-pre_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-post_clean_str <- function () {
-  post_clean <- nrow(dataset %>% group_by(Term, Unit) %>% summarise())
-  cat(sprintf("%i term-unit pair%s remaining (%i%% of total removed)",
-              post_clean,
-              ifelse(post_clean == 1,"","s"),
-              floor((pre_clean - post_clean)/pre_clean * 100)))
-}
+terms_remove <- tictoc(function() { nrow(dataset %>% select(Term, Unit) %>% unique()) },
+                        function(old, new) {
+                           cat(sprintf("%s term-unit pair%s remaining (%i%% of total removed)",
+                              comma(new),
+                              ifelse(new == 1,"","s"),
+                              floor((old - new)/old * 100))) 
+                        },
+                       tic_on_toc = TRUE)
+terms_remove$tic()
 
 <<pp-to-si>>
 
-post_clean_str()
+terms_remove$toc()
 ```
 
 #### One Term, One Unit
@@ -166,7 +167,7 @@ To standardize units for each term, we will first choose the target unit to conv
 <<pp-term-unit-target>>
 ```
 
-The tricky part comes in when we convert a quantity from a non-target unit to the target unit. During this step, we will assume that, <span class="hl">for each species, the median quantity traded in animal units is constant regardless of the terms/units they were specified in</span>. In other words, if the median quantity of elephant bodies is 2, and the median quantity of elephant bodies in kgs is 14,000, then the 2 elephant bodies are equivalent to 14,000 kgs.
+The tricky part comes in when we convert a quantity from a non-target unit to the target unit. During this step, we will assume that, <span class="hl">for each species, the median quantity traded in animal units is constant regardless of the terms/units</span>. In other words, if the median quantity of elephant bodies is 2, and the median quantity of elephant bodies in kgs is 14,000, then the 2 bodies are equivalent to 14,000 kgs.
 
 This assumption allows us to convert quantities to the target unit using the following equation:
 
@@ -180,7 +181,7 @@ where <br>
 
 ##### The Roll-Up Median Approach
 
-One potential challenge with the above approach is the lack of data points for each species, term and unit triplet. To illustrate, consider the African bush elephant (Loxodonta africana) trades below:
+One potential challenge with the above approach is the lack of data points for each species, term and unit triplet. To illustrate, consider the African Elephant (Loxodonta africana) trades below:
 
 ```{r}
 output_tbl <- dataset %>% 
@@ -251,7 +252,7 @@ grViz(paste0("
 "), height=700)
 ```
 
-To sum up the flowchart above, we will first count the number of records under the given species, term and unit. If the records are insufficient, we then "roll-up" and find the number of records for the genus associated with the species. This process continues until we have sufficient data points to calculate the median.
+To sum up the flowchart above, we first count the number of records under the given species, term and unit. If the records are insufficient, we then "roll-up" and find the number of records for the genus associated with the species. This process continues until we have sufficient data points to calculate the median.
 
 ##### Managing Outliers
 
@@ -261,12 +262,12 @@ Using the following process, we can now convert all the terms to their standardi
 ```{r}
 <<pp-term-unit-final>>
 
-post_clean_str()
+terms_remove$toc()
 ```
 
 #### Well-Defined Terms
 
-Let us now <span class="hl">convert each term to the universal animal unit</span>. Through observation, the terms can be differentiated into well-defined or ambiguous. A term is well-defined if it each animal (which has them) has the same number of them. One good example would be tusk, since 2 of them are always the equivalent of 1 animal. 
+Let us now <span class="hl">convert each term to the universal animal unit</span>. Through observation, the terms can be differentiated into well-defined or ambiguous. A term is well-defined if each animal has the same number of them. One good example would be tusk, since 2 of them are always the equivalent of 1 animal. 
 
 Listed below are the terms we describe as well-defined:
 
@@ -287,14 +288,14 @@ To convert a well-defined term, we simply need to divide the quantity by the num
 ```{r}
 <<pp-term-well-defined-convert>>
 
-post_clean_str()
+terms_remove$toc()
 ```
 
 #### Ambiguous Terms
 
-The final piece of the jigsaw is to convert ambiguous terms. These terms, by nature of their names, are somewhat vague, and there exists no clear association between them and the number of animals. For example, how many ivory pieces make up an elephant? Depending on the sizes of the pieces, the numbers would differ record by record.
+The final piece of the jigsaw is to convert ambiguous terms. These terms, by nature of their names, are somewhat vague, and there exists no clear association between them and the number of animals. For example, how many ivory pieces make up an elephant? Depending on the size of the pieces, the numbers would differ record by record.
 
-To simplify the conversion process, we will revisit our previous assumption when standardizing units of a term. Assuming that <span class="hl">across each species, the median quantity traded in live animal units is the same across any term</span>, ambiguous terms can be converted using the following equation:
+To simplify the conversion process, we will revisit our previous assumption when standardizing units of a term. Assuming that <span class="hl">across each species, the median quantity traded in live animal units is the same</span>, ambiguous terms can be converted using the following equation:
 
 \[ q_{animal} = \frac{q_{at}}{m_{at}} \times m_{animal} \]
 
@@ -311,14 +312,14 @@ With this final step, we have reduced over 200 distinct term-unit pairs into a s
 ```{r}
 <<pp-term-ambiguous-convert>>
 
-post_clean_str()
+terms_remove$toc()
 ```
 
 ### Completing the Taxonomy
 
-One of the problems with incomplete taxonomies is that identical species have different identities within the data. For example, it is possible that an animal was recorded with its species taxonomy during importing, but only with an Order during exporting. In such circumstances, we might misinterpret the former as being consumed, while the latter being obtained from the local wildlife areas. 
+One of the problems with incomplete taxonomies is that identical species have different identities. For example, it is possible that an animal was recorded with its species taxonomy during importing, but only with an order during exporting. In such circumstances, we might misinterpret the former as being consumed, while the latter as being captured locally. 
 
-To correct for the incomplete taxonomies, we will be using the method below:
+To correct for the incomplete taxonomies, we will use the method below:
 
 ```{r}
 grViz(paste0("
@@ -330,22 +331,22 @@ grViz(paste0("
     edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
     
     # Input Specs
-    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete-Taxonomy Trade\nfrom Country A to B\nfor Class c and Order o', shape = rectangle]
+    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete Taxonomy Trade\nfrom Country A to B\nfor Class c and Order o', shape = rectangle]
 
     # Conclude Specs
     node [shape = oval]
-    Route_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades from A to B.', fillcolor = '",get_color(1),"']
-    Export_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades from A.', fillcolor = '",get_color(2),"']
-    Import_Y [label = 'Divide the trades proportionally\namong the Class c, Order o\n trades to B.', fillcolor = '",get_color(3),"']
-    All_Y [label = 'Divide the trades proportionally\namong all the Class c, Order o\n trades.', fillcolor = '",get_color(4),"']
+    Route_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A to B.', fillcolor = '",get_color(1),"']
+    Export_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A.', fillcolor = '",get_color(2),"']
+    Import_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades to B.', fillcolor = '",get_color(3),"']
+    All_Y [label = 'Divide the trades proportionally\namong all Class c, Order o\n trades.', fillcolor = '",get_color(4),"']
 
     # Trigger Specs
     node [shape = diamond, fillcolor = '",bg_color,"', fontcolor = '",txt_color,"', penwidth = 1]
-    Route_T [label = 'Does A to B have any taxonomy trades\ncorresponding to Class c and Order o?']
+    Route_T [label = 'Does A to B have\nany complete taxonomy trades\ncorresponding to Class c and Order o?']
     { rank = same; Route_T, Route_Y }
-    Export_T [label = 'Does A have any taxonomy exports\ncorresponding to Class c and Order o?']
+    Export_T [label = 'Does A have\nany complete taxonomy exports\ncorresponding to Class c and Order o?']
     { rank = same; Export_T, Export_Y }
-    Import_T [label = 'Does B have any taxonomy imports\ncorresponding to Class c and Order o??']
+    Import_T [label = 'Does B have\nany complete taxonomy imports\ncorresponding to Class c and Order o?']
     { rank = same; Import_T, Import_Y }
 
     # Yes edges
@@ -365,10 +366,18 @@ grViz(paste0("
 "), height=400)
 ```
 
-In summary, the methodology above attempts to distribute incomplete taxonomy trades into its species constituents. The approach first analyzes whether there are species of similar natures undergoing the same trade route. If there are, the incomplete taxonomy trades will be distributed amongst the different spcies at existing ratios. If there are none, we subsequently "roll-up" and consider all similar species exported by the country specified under the Exporter column. This process continues until all the incomplete taxonomy trades are mapped to individual species.
+In summary, the methodology above distributes incomplete taxonomy trades to their related species. The approach first analyzes whether there are species of similar natures undergoing the same trade route. If there are, the incomplete taxonomy trades will be distributed amongst the species at existing ratios. If there are none, we subsequently "roll-up" and consider the species exported by the Exporter. This process continues until all the incomplete taxonomy trades are attributed to their respective species.
 
 ```{r}
+taxon_remove <- tictoc(function() { nrow(dataset %>% filter((Taxon == Class | grepl("spp.",Taxon) | Genus == ""))) },
+                       function(old,new) {
+                         cat(sprintf("%s incomplete taxonomies converted",comma(old-new)))
+                       })
+taxon_remove$tic()
+
 <<pp-taxon>>
+  
+taxon_remove$toc()
 ```
 
 ### Restricting to Endangered Species
@@ -377,11 +386,11 @@ Endangered status of species are located in the IUCN Red List database. Due to l
 
 By integrating the IUCN data, we can filter non-endangered species out of the dataset.
 ```{r}
-pre_remove <- nrow(dataset)
+animal_remove$tic()
 
 <<pp-endanger>>
 
-post_remove_str()
+animal_remove$toc()
 ```
 
 ## Exploration
@@ -396,21 +405,7 @@ The interactive chart below shows how wildlife trade evolves across time:
 streamgraph_plot
 ```
 
-Based on the above, we know that as of 2011, species whose statuses are <span class="hl red-text">Critical</span> account for <span class="hl red-text">`r sprintf("%.0f%%",(trades_by_time %>% filter(Year == 2011) %>% mutate(pct = total_trades/sum(total_trades)) %>% filter(IUCNLabel == "Critical"))$pct * 100)`</span> of the total trades. This is disconcerting as the species closest to extinction are the ones being captured the most.
-
-```{r}
-pander(
-  trades_by_time %>%
-    ungroup() %>%
-    filter(Year >= 2012) %>%
-    group_by(IUCNLabel) %>%
-    summarise(MeanTradeGrowth = geoMean(1 + pct_inc) - 1) %>%
-    mutate(MeanTradeGrowth = sprintf("%s%.1f%%",ifelse(MeanTradeGrowth > 0,"+","-"),abs(MeanTradeGrowth * 100)))
-,caption="Year on Year Trade Growth by Endangered Status")
-
-```
-
-However, when comparing the year-on-year trade growth on average, we see that since 2012, the number of critical-species trading has fallen by an average of <span class="hl red-text">6.1%</span>. A majority of this reduction is due to the fall of trading in the year of 2015. It remains to be seen whether this decrease is a result of improved conservation or due to a lag in reporting.
+Based on the above, we know that as of 2011, species whose statuses are <span class="hl red-text">Critical</span> account for <span class="hl red-text">`r sprintf("%.0f%%",(trades_by_time %>% filter(Year == 2011) %>% mutate(pct = total_trades/sum(total_trades)) %>% filter(IUCNLabel == "Critical"))$pct * 100)`</span> of the total trades. By 2015, however, these critical species account for <span class="hl red-text">`r sprintf("%.0f%%",(trades_by_time %>% filter(Year == 2015) %>% mutate(pct = total_trades/sum(total_trades)) %>% filter(IUCNLabel == "Critical"))$pct * 100)`</span> of the total trades. This is disconcerting as the species closest to extinction are the ones being captured the most.
 
 #### Reasons for Trading
 
@@ -422,7 +417,7 @@ The waffle chart below highlights the purposes behind endangered wildlife trade:
 waffle_plot
 ```
 
-Shockingly, trading due to <span class="hl red-text">commercial</span> reasons account for over <span class="hl red-text">95%</span> of all trades! In other words, for every 1 animal traded for species <span class="hl green-text">conservation</span>, another 193 trades are being utilized for profit-making purposes. From the data, the conservation movement is having difficulty catching up with excess capitalism.
+Shockingly, trading due to <span class="hl red-text">commercial</span> reasons account for over <span class="hl red-text">94%</span> of all trades! In other words, for every 1 animal traded for <span class="hl green-text">conservation</span> purpose, 188 trades are being conducted for profit-making. It seems that conservationists are having difficulties catching up with excess capitalism.
 
 #### Most Traded Species
 
@@ -446,7 +441,7 @@ htmlwidgets::onRender(
 
 ```
 
-By scrolling through the chart above, the <span class="hl yellow-text">Anthozoa</span> class account for close to 70% of the total trades. Some examples of species belonging to this class are soft and hard corals. The well-publicized <span class="hl blue-text">African Elephant</span>, belonging to the <span class="hl blue-text">Mammalia</span> class, interestingly account for less than 0.2% of the total trades.
+By scrolling through the chart above, the <span class="hl yellow-text">Anthozoa</span> class account for close to <span class="hl yellow-text">33%</span> of the total trades. Some examples of species belonging to this class are soft and hard corals. The well-publicized <span class="hl blue-text">African Elephant</span>, belonging to the <span class="hl blue-text">Mammalia</span> class, interestingly account for less than 0.4% of the total trades.
 
 #### Demand Hotspots
 
@@ -458,13 +453,13 @@ Using export and import data, we can estimate the consumption of wildlife in eac
 leaflet_import_plot
 ```
 
-By utilizing net imports as a proxy, we are able to determine countries with the highest wildlife demand. Surprisingly, <span class="hl red-text">China</span> is ranked fourth, while the <span class="hl red-text">United States</span> has around 5 times more demand than the second-ranked country, <span class="hl red-text">Japan</span>! <span class="hl red-text">Israel</span> and <span class="hl red-text">South Korea</span> make up the top 5.
+By utilizing net imports as a proxy, we determined countries with the highest wildlife demand. Surprisingly, <span class="hl red-text">China</span> is ranked third, while the <span class="hl red-text">United States</span> has around 3 times more demand than the second-ranked country, <span class="hl red-text">Japan</span>! <span class="hl red-text">Korea</span> and <span class="hl red-text">Hong Kong</span> make up the top 5.
 
-It remains to be seen whether the huge gap between United States and the other top 4 countries is due to actual trading or higher diligence in reporting. Nevertheless, the map above has surfaced countries (such as Israel and South Korea) that are often overlooked and could be worth focusing more on. 
+It remains to be seen whether the huge gap between United States and the other top 4 countries is due to actual trading or higher diligence in reporting.
 
-#### Supply Origins
+#### Wildlife Supply
 
-Using the opposite logic as demand, if a country exports more than it imports, then we assume that the difference is captured within the country.
+Using the opposite logic as demand, if a country exports more than it imports, then we assume that the difference is captured locally.
 
 ```{r}
 <<exp-exports>>
@@ -472,7 +467,7 @@ Using the opposite logic as demand, if a country exports more than it imports, t
 leaflet_export_plot
 ```
 
-Using net exports as a proxy, we are able to determine the distribution of supply across the globe. As expected, Southeast Asia and Africa are two areas where the majority of wildlifes are coming from. In particular, <span class="hl purple-text">Indonesia</span> exports the most wildlife, over 2.5 times more than the second-ranked <span class="hl purple-text">Fiji</span>. <span class="hl purple-text">Morocco</span>, the highest-ranked nation in Africa, is 9th.
+Using net exports as a proxy, we can determine the distribution of supply across the globe. As expected, Southeast Asia, Africa and South America are areas where the majority of wildlife is coming from. In particular, <span class="hl purple-text">Indonesia</span> exports the most wildlife, close to 2 times than the second-ranked <span class="hl purple-text">Ecuador</span>. <span class="hl purple-text">Morocco</span>, the highest-ranked nation in Africa, is 5th.
 
 ## Identifying the Major Players
 
@@ -481,11 +476,11 @@ For the purposes of this analysis, the major players in the endangered wildlife 
 1. surface players that were otherwise overlooked, and
 2. rank each player according to their wildlife trading activity.
 
-[1] will allow us to have a more macro perspective on the impact of each country towards endangered wildlife, while [2] will help us prioritize which countries to focus on given the limited conservation resources.
+[1] will allow us to have a more macro perspective on each country's role towards species degradation, while [2] will help us prioritize which countries to focus on given limited conservation resources.
 
 ### Choosing the Algorithm
 
-The most intuitive way to identify major players is by <span class="hl">their net imports/exports</span>. By ranking these metrics according to size, we can potentially find the countries supplying and consuming endangered wildlife goods. However, one potential pitfall of such an approach is that the intermediary players get overlooked. Consider the following scenario:
+The most straightforward way to identify major players is by <span class="hl">their net imports/exports</span>. By ordering these metrics, we can potentially find countries supplying and consuming endangered wildlife goods. However, one potential pitfall of such an approach is that the intermediary players get overlooked. Consider the following scenario:
 
 ```{r}
 grViz(paste0("
@@ -510,9 +505,9 @@ grViz(paste0("
 
 In such a scenario, <span class="color-1-text">A</span> will have a net export of 100, B a net import of 1 and <span class="color-3-text">C</span> a net import of 99. Using the net import/export approach, <span class="color-2-text">B</span> is the least important player. However, in actuality, <span class="color-2-text">B</span> should be the most pivotal country as it is involved in all 199 trades. Hence, a better approach is required.
 
-One way to tackle the issue above is to instead use each country's gross <span class="hl">imports + exports</span> as a measure of involvement. This approach would work well in the above case, as <span class="color-2-text">B</span> would rightly be identified as the most important player. However, one weakness of such a method would be the huge assumption that the absolute numbers are extremely accurate. In truth, this may not be the case, due to the following reasons:
+Another way to tackle the issue above is to instead use each country's gross <span class="hl">imports + exports</span>. This approach would work well in the above case, as <span class="color-2-text">B</span> would rightly be identified as the most important player. However, one weakness of such a method would be the assumption that absolute numbers are extremely accurate. In truth, this may not be the case, due to the following reasons:
 
-1. There may be reporting errors recorded in the CITES database, and
+1. There may be reporting errors in the CITES database, and
 2. There could be conversion errors incurred in the <a href="#pre-processing">Pre-Processing</a> stage.
 
 Moreover, consider the following scenario: 
@@ -540,21 +535,21 @@ grViz(paste0("
 "), width=173, height=200)
 ```
 
-Using the imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger player in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
+Using the imports + exports approach, we conclude that both <span class="color-3-text">C</span> and <span class="color-5-text">E</span> have the same degree of involvement. However, if the numbers presented are only <span class="hl">roughly</span> accurate, it would be reasonable to assume that <span class="color-3-text">E</span> is more involved as it is linked to a bigger intermediary in <span class="color-2-text">D</span>. (This same argument could be made for drug trafficking, where the closer you are to a drug cartel, the more likely you are to be a major player.)
 
-Fortunately, we are able to resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank">Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
+Fortunately, we can resolve these two issues using <a class="hl" href="https://en.wikipedia.org/wiki/PageRank">Google's PageRank</a> algorithm. The algorithm is famous for ranking a website's quality based on:
 
 i. the number of links pointing to the website, and 
 ii. who is pointing to the website.
 
-This algorithm can be leveraged for our analysis, which is used to assess the involvement of a country through:
+This algorithm can be leveraged for our analysis to assess the involvement of a country by:
 
-i. the number of trades that country is involved in, and
-ii. which other nations that country is involved with.
+i. the number of trades the country is involved in, and
+ii. which other nations the country is involved with.
 
 ### Modeling Wildlife Trade
 
-To run the PageRank algorithm, we need to model the wildlife trade as a network, where the countries are represented as <span class="hl">vertices</span>. Two countries are connected by an <span class="hl">edge</span> if the two have wildlife trading activity between one another. The degree of wildlife trading between two countries defines the <span>weight</span> of the edge. For the purposes of this study, we will use the sum of gross imports and exports as an indicator of the intensity of wildlife trading.
+To run the PageRank algorithm, we need to model the wildlife trade as a network, with the countries represented as <span class="hl">vertices</span>. Two countries are connected by an <span class="hl">edge</span> if the two trade with one another. The degree of wildlife trading between two countries defines the <span>weight</span> of the edge. For the purposes of this study, we will use the sum of imports and exports as the edges' weights.
 
 Using the above definitions, we are now equipped to model the wildlife trade for the period of 2001 to 2015:
 
@@ -564,9 +559,9 @@ Using the above definitions, we are now equipped to model the wildlife trade for
 edge_bundle_plot
 ```
 
-The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target="_blank">hierarchical edge bundle</a> plot shows the degree of involvement of each country. The larger the circle, the greater the total imports and exports of the country. Unsurprisingly, both <span class="hl blue-text">United States</span> and <span class="hl orange-text">Indonesia</span> have the highest total imports and exports.
+The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target="_blank">hierarchical edge bundle</a> plot shows the degree of involvement of each country. The larger the circle, the greater the total imports and exports of the country. Unsurprisingly, <span class="hl blue-text">United States</span>,  <span class="hl orange-text">China</span> and <span class="hl orange-text">Indonesia</span> have the highest total imports and exports.
 
-Other than that, we can also identify the most popular trade routes. The higher the intensity of wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>. It will be interesting to see how these routes affect the rankings obtained by PageRank.
+Other than that, we can also identify the most popular trade routes. The larger the wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>. 
 
 ### The PageRank Algorithm
 
@@ -581,13 +576,13 @@ pander(vertices %>% arrange(desc(PRANK)) %>% head(5) %>%
        caption="The Top 5 Major Players According to PageRank")
 ```
 
-Before continuing to the analysis, it is important for us to understand what the PageRank number represents. When used for assessing the quality of websites, this number refers to the <span class="hl">probability of a person viewing the website</span>. The higher the PageRank probability, the more likely the person will view the website, and hence the higher the quality of the site.
+Before continuing, it is important for us to understand what the PageRank number represents. When used for assessing the quality of websites, this number refers to a person's <span class="hl">probability of viewing the website</span>. The higher the PageRank probability, the more likely the person will view the website, and hence the higher the quality of the site.
 
-Similarly, in the widlife trading context, the PageRank number of a country A is the <span class="hl">probability that A is responsible for a random wildlife trade</span>. The higher the PageRank of a country, the more wildlife trades are attributed to it. In other words, if there are 1 million trades worldwide, <span class="hl">United States</span> would account for approximately <span class="hl">`r round((vertices %>% filter(index == "US"))$PRANK,2)` million</span> trades. By identifying countries with the highest PageRank, we can potentially determine who the major players are.
+Similarly, in the widlife trading context, the PageRank of a country A is the <span class="hl">probability that A is responsible for a wildlife trade</span>. The higher the PageRank of a country, the more wildlife trades are attributed to it. In other words, if there are 1 million trades worldwide, <span class="hl">United States</span> would account for approximately <span class="hl">`r round((vertices %>% filter(index == "US"))$PRANK,3)` million</span> trades. By identifying countries with the highest PageRank, we can determine who the major players are.
 
 #### Comparing With Imports + Exports Approach
 
-To comprehend further how PageRank works, let us first compare it with Imports + Exports from a bird's eye view:
+To comprehend further, let us first compare PageRank with Imports + Exports:
 
 ```{r, fig.asp=0.5}
 <<model-pagerank-hist>>
@@ -595,7 +590,7 @@ To comprehend further how PageRank works, let us first compare it with Imports +
 hist_plot
 ```
 
-The plot above shows the distribution of <span class="hl blue-text">PageRank</span> and <span class="hl green-text">Imports + Export</span> values. As can be seen, the latter distribution has a much gentler slope, implying that wildlife trade responsibilites are more "spread-out" across countries. <span class="hl">The PageRank algorithm, however, extremizes this distribution by compacting "average" countries into a single peak.</span> Only a handful of least and most important nations are left in the tails, allowing us to better distinguish them.
+The plot above shows the distribution of <span class="hl blue-text">PageRank</span> and <span class="hl green-text">Imports + Export</span>. The latter distribution has a much gentler slope, implying that wildlife trade responsibilites are more "spread-out" across countries. <span class="hl">The PageRank algorithm, however, extremizes this distribution by compacting "average" countries into a single peak.</span> Only a handful of least and most important nations are left in the tails, allowing us to better distinguish them.
 
 Secondly, let us investigate how the rankings shift as we transition from one approach to another:
 
@@ -605,9 +600,9 @@ Secondly, let us investigate how the rankings shift as we transition from one ap
 rank_plot
 ```
 
-In both rankings, the top 5 countries remain the same. This implies that <span class="hl">gross imports and exports do play a prominent role in the PageRank algorithm.</span> However, the shifts from top 6 onwards also indicate that total trades is not the only factor influencing PageRank. 
+In both rankings, the top 6 countries remain the same. This implies that <span class="hl">imports and exports do play a prominent role in the PageRank algorithm.</span> However, the shifts in rankings also indicate that total trades is not the only factor influencing PageRank. 
 
-To understand the other variables affecting PageRank, let us compare two countries that have been promoted and demoted extensively, <span class="hl red-text">France</span> and <span class="hl orange-text">South Korea</span>:
+To identify other important factors, let us compare two countries that have been promoted and demoted extensively, <span class="hl orange-text">Japan</span> and <span class="hl blue-text">Ecuador</span>:
 
 ```{r, fig.asp=1.05, width=8}
 <<model-pagerank-compare>>
@@ -615,19 +610,21 @@ To understand the other variables affecting PageRank, let us compare two countri
 compare_plot
 ```
 
-The diagram above shows all the countries that either France or South Korea traded with. From the diagram, it is clear that <span class="red-text">France</span> has a greater outreach than <span class="orange-text">South Korea</span>, even though the latter has a higher total imports + exports. <span class="hl">This degree of outreach caused the algorithm to promote <span class="red-text">France</span> at the expense of <span class="hl orange-text">South Korea</span>.</span>
+The diagram above shows all the countries that either Japan or Ecuador traded with. It is clear that Japan has a greater outreach than Ecuador, even though the latter has a higher total imports + exports. <span class="hl">This degree of outreach caused the algorithm to promote <span class="orange-text">Japan</span> at the expense of <span class="blue-text">Ecuador</span>.</span>
 
 #### Decomposing PageRank
 
-The PageRank algorithm allows us to determine who the major players are. However, each country has different roles to play in endangered wildlife trading. Some can be <span class="hl">consumers</span> (countries which fuel the demand of wildlife consumption), <span class="hl">suppliers</span> (countries which capture the wildlife and ship them out) or even <span class="hl">dealers</span> (intermediaries which connect suppliers and consumers). To reduce wildlife trading, each role will require different strategies. <span class="hl">In this section, we will construct a method to identify the top consumers, dealers and suppliers.</span> Moreover, it is important to note that these roles are not exclusive; a country may well be a supplier of one species and a consumer of another.
+The PageRank algorithm allows us to determine who the major players are. However, each country has different roles to play. Some can be <span class="hl">consumers</span> (countries which fuel the demand of wildlife consumption), <span class="hl">suppliers</span> (countries which capture the wildlife and ship them out) or even <span class="hl">dealers</span> (intermediaries which connect suppliers and consumers). To reduce wildlife trading effectively, tackling different roles will require different strategies. 
 
-To determine the country's degree of role as a consumer, dealer and supplier, we will first split the quantity traded of each species into three constituents:
+<span class="hl">In this section, we will construct a method to identify the top consumers, dealers and suppliers.</span> It is important to note that these roles are not exclusive; a country may well be a supplier of one species and a consumer of another.
+
+To determine a country's role, we will first split the quantity traded of each species into three constituents:
 
 * <span class="hl">Net Imports</span>: The amount of trades being brought into the country. This is the leftover amount when we subtract imports with exports. If exports are more than imports, then there are no net imports.
 * <span class="hl">Net Exports</span>: The amount of trades being shipped out of the country. This is equivalent to the amount remaining when we subtract exports with imports. If imports are more than exports, there are no net exports.
 * <span class="hl">Transits</span>: These are the trades being brought in and then shipped out of the country. This is equivalent to the minimum of Exports and Imports.
 
-These constitutients are then summed up across species to determine a country's net imports, net exports and transits. These 3 values are subsequently to decompose PageRank via the following approach.
+These constitutients are then summed up across species to determine a country's net imports, net exports and transits. Thee 3 values are subsequently used to decompose PageRank via the following approach:
 
 ```{r}
 grViz(paste0("
@@ -652,11 +649,11 @@ grViz(paste0("
 
 where
 
-* <span class="hl red-text">ConsumerRank</span> is the % of universal trades the country is responsible for due to <span class="hl red-text">its consumption</span>,
-* <span class="hl">DealerRank</span> is the % of universal trades the country is responsible for due to <span class="hl">it being an intermediary</span>, and
-* <span class="hl purple-text">SupplierRank</span> is the % of universal trades the country is responsible for due to <span class="hl purple-text">its provision<span>.
+* <span class="hl red-text">ConsumerRank</span> is the % of trades due to the country's <span class="hl red-text">consumption</span>,
+* <span class="hl">DealerRank</span> is the % of trades due to the country <span class="hl">being an intermediary</span>, and
+* <span class="hl purple-text">SupplierRank</span> is the % of trades due to the country's <span class="hl purple-text">provision<span>.
 
-By ranking each of these three ranks, we can now determine which countries are the top consumers, dealers and suppliers. By summing up each of these metrics, we are also able to determine the major drivers of wildlife trading:
+By ordering each of these three ranks, we can determine which countries are the top consumers, dealers and suppliers. Summing up each of these metrics would also allow us to determine the major drivers behind wildlife trading:
 
 ```{r}
 <<model-pagerank-decompose-overview>>
@@ -668,7 +665,7 @@ paste0(paste0(sapply(c("CRANK","DRANK","SRANK"), function(r) {
 cat()
 ```
 
-From the above summary, we know that consumption and supply of wildlife goods are the major factors behind wildlife exchanges. Intermediaries surprisingly do not play major roles. This suggests that in order to reduce trading, we are better off focusing on reducing supply and demand (instead of breaking down the channels connecting them).
+From the above summary, consumption and supply of wildlife goods contribute the most to wildlife exchanges. Intermediaries surprisingly do not play major roles. This suggests that to reduce trading, we are better off focusing on reducing supply and demand (instead of breaking down the channels connecting them).
 
 ```{r, fig.asp=0.8, width=8}
 <<model-pagerank-decompose-leaf>>
@@ -676,7 +673,7 @@ From the above summary, we know that consumption and supply of wildlife goods ar
 suppressWarnings(print(leaf_plot))
 ```
 
-The leaf plot above shows the degree of role for the top 25 major players. <span class="hl blue-text">United States</span>, the biggest player, are mostly consumers, while <span class="hl red-text">Germany</span> is a large dealer. <span class="hl orange-text">China</span> unsurprisingly is both consuming and supplying wildlife resources.
+The leaf plots above show the roles played by the top 12 countries. <span class="hl blue-text">United States</span>, the biggest player, are mostly consumers, while <span class="hl red-text">Germany</span> is a large dealer. <span class="hl orange-text">China</span> unsurprisingly is both consuming and supplying wildlife resources.
 
 ### The Major Players
 
@@ -700,31 +697,31 @@ To find out more about each country's trading activity, please hover or click on
 
 #### Dealers
 
-`r get_players((dealers %>% head(5))$index,heading_color, type="Transits", asterisks=list("FR"=c("European Eel"="Due to missing black market exports, France is considered an intermediary stop for European Eels, even though they originated from the country. See Limitations.")))`
+`r get_players((dealers %>% head(5))$index,heading_color, type="Transits", disclaimers=list("FR"=c("European Eel"="Due to missing black market exports, France is considered an intermediary stop for European Eels, even though they originate from the country. See Limitations.")))`
 
 #### Suppliers
 
-`r get_players((suppliers %>% head(5))$index,get_color("purple"), type="Net_Exports", asterisks=list("MX"=c("European Eel"="Due to missing black market imports, European Eels are considered as Top Providers for Mexico. See Limitations."), "CN"=c("European Eel"="Due to missing black market imports, European Eels are considered as Top Providers for China. See Limitations.")))`
+`r get_players((suppliers %>% head(5))$index,get_color("purple"), type="Net_Exports", disclaimers=list("MX"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for Mexico. See Limitations."), "CN"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for China. See Limitations.")))`
 
 ## Summary of Results
 
 By standardizing measurements through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
 
-* <span class="hl">Consumers</span> are countries which generate the demand of wildlife. It is important to educate citizens in these countries to stop using wildlife-related products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
-* <span class="hl">Dealers</span> are countries which connect suppliers with consumers. More stringent measures can be set up in these countries' trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
+* <span class="hl">Consumers</span> are countries which generate the demand of wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
+* <span class="hl">Dealers</span> are countries which connect suppliers and consumers. More stringent measures can be set up in the trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
 * <span class="hl">Suppliers</span> are countries that provide the wildlife goods. Efforts to protect the nature reserves of these countries should be emphasized. The top 5 suppliers are `r paste0(sprintf('<span class="hl">%s</span>',(suppliers %>% head(5))$NAME), collapse = ", ")`.
 
 ## Limitations
 
-The above analysis, though simplified, provide us with a better picture of the wildlife situation across the world. Listed below are some suggestions to improve the accuracy of results:
+The above analysis, though simplified, provides us with a better picture of the wildlife situation across the world. Listed below are some suggestions to improve the accuracy of results:
 
-* <span class="hl">One Side of the Story</span>: This study is based on data reported by governments. However, there are many black market trades that could influence our understanding of the wildlife market. It would be interesting to identify the black market trades through verifying the consistency of the dataset, and then incorporating that into this analysis.
-* <span class="hl">Wild</span>: Due to size constraints, we only considered trades whose sources are tagged as "Wild". By expanding the scope, additional insights could possibly be unearthed.
-* <span class="hl">Species-Specific Fixes</span>: The methods in pre-processing are one-size-fits-all, which favor expediency over accuracy. By fixing each trade according to individual species's characteristics (such as weight), we can obtain more accurate transformations from the terms specified into animal counts.
+* <span class="hl">One Side of the Story</span>: This study is based on data reported by governments. As such, many black market trades are missing. It would be interesting to identify these "shadow" trades by verifying the consistency of the CITES data, before integrating them back into this analysis.
+* <span class="hl">Wild</span>: Due to size constraints, we only considered trades whose sources are tagged as "Wild". By expanding the scope, additional insights could be unearthed.
+* <span class="hl">Species-Specific Fixes</span>: The methods in pre-processing are one-size-fits-all and favor expediency over accuracy. By fixing each trade according to individual species's characteristics (such as weight), we can obtain more accurate transformations of the terms into animal counts.
 
 ## References
 
-CITES Database 2018. <https://www.cites.org/>. Downloaded on 24 April 2018.
+CITES Database 2017. <https://www.cites.org/>. Downloaded on 24 April 2018.
 
 IUCN 2017. The IUCN Red List of Threatened Species. Version 2017-3. <http://www.iucnredlist.org>. Downloaded on 25 April 2018.
 

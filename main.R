@@ -24,7 +24,7 @@ specs_dir <- "specs/"
 ## ---- end-of-init
 
 # About the Data ----
-## ---- data-overview
+## ---- data-about
 
 # Load Data
 dataset <- cache("2001_2015_dataset",list(),function() {
@@ -45,7 +45,7 @@ dataset <- cache("2001_2015_dataset",list(),function() {
 
 
 cols_summary <- data_overview(dataset)
-## ---- end-of-data-overview
+## ---- end-of-data-about
 
 # Pre-Processing ----
 ## ---- pp-animals
@@ -679,14 +679,18 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   
   
   # Create leaflet arguments
+  # Prevent zooming out infinitely
   leaflet_ptOptions <- providerTileOptions(minZoom = 1)
+  # Get colors of each polygon based on trading intensity
   leaflet_palette <- colorQuantile(c(get_color(map_col,0.1),get_color(map_col)),
                                    polygons$net_val,
                                    n = 5, 
                                    na.color = "#ffffffff")
+  # What happens to polygon fill when we hover on it
   leaflet_highlightOptions <- highlightOptions(
                                 fillOpacity = 0.5,
                                 bringToFront = TRUE)
+  # Toppltip to appear on hovering
   leaflet_labels <-  sprintf(
                         paste0("<span style='font-family: var(--heading-family); font-size: 1.2em'>%s</span><br/>",
                                "Ranked <span style='font-size:1.2em'>%s</span> (out of %s)<br/>",
@@ -712,8 +716,9 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                               direction = "auto")
                           })
   
-  # Markers
+  # Markers for Top 5 countries
   marker_data <- polygons[polygons@data$rank <= 5,]
+  # Create icons for the Top 5
   marker_icons <- awesomeIcons(
                     # To prevent bootstrap 3.3.7 from loading and removing cosmo theme css, metadata for mobile
                     library = 'fa',
@@ -722,7 +727,9 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                       sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", bg_color, toOrdinal(x)) }),
                     fontFamily = def_font
                   )
+  # Options when marker is clicked
   marker_options <- markerOptions(opacity = 0.9)
+  # What to show when marker is clicked
   marker_popup <- sprintf(
                     paste0("<span style='font-family: var(--font-family); color: %s'>[%s] <span style='font-family: var(--heading-family); color: %s; font-size: 1.2em'>%s</span><br/>",
                            "%s %s</span>"),
@@ -772,7 +779,7 @@ vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
             sort() %>%
             { data.frame(index=.)} %>%
             inner_join(world_borders@data, by=c("index"="ISO2")) %>%
-            # Prevent names from going too long
+            # Create labels that truncate names
             mutate(NAME_SHORT = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
                    REGION = paste0("REGION-",REGION),
                    SUBREGION = paste0("SUBREGION-",SUBREGION)) %>%
@@ -787,6 +794,7 @@ edges <- dataset %>%
          group_by(v1,v2) %>%
          summarise(total_trades = sum(Qty))
 
+# Calculate imports + exports of each country
 vertices$VALUE <- sapply(vertices$index, function(i) { sum(edges[edges$v1 == i | edges$v2 == i,]$total_trades) })
 
 # Filter Top X Countries If Necessary
@@ -856,7 +864,7 @@ for (v1 in unique(connections$from)) {
   
 } 
 
-# Adjust the angle and hjust based on the position of x and y
+# Adjust the angle and horizontal alignment of nodes based on the position of x and y
 edge_bundle_plot$data["angle"] <- sapply(1:nrow(edge_bundle_plot$data), 
                                        function (i) {
                                           t_ratio <- min(max(edge_bundle_plot$data$y[i] / edge_bundle_plot$data$x[i], -10000),10000)
@@ -877,7 +885,7 @@ edge_bundle_plot <- edge_bundle_plot +
                                           label=function (v) { sprintf("%.0f mil",v/1000000)},
                                           guide=guide_legend(override.aes = list(color=txt_color, alpha=0.8))) + 
                     scale_color_manual(values=color_dictionary, guide="none") +
-                    scale_alpha_continuous(limits=c(max(nodes$ranking)-110,max(nodes$ranking)-10), na.value=0.1, guide="none") +
+                    scale_alpha_continuous(limits=c(max(nodes$ranking)-100,max(nodes$ranking)-10), na.value=0.1, guide="none") +
                     # Make sure labels are viewable
                     expand_limits(x = c(-1.25, 1.25), y = c(-1.25, 1.25))
                 
@@ -927,7 +935,9 @@ hist_plot <- ggplot(hist_input) +
              ) +
              scale_x_continuous(expand=c(0,0)) + 
              scale_y_continuous(expand=c(0,0)) +
+             # Add Mean line
              geom_vline(data=data.frame(1), xintercept = 0, linetype="dashed", colour=ltxt_color) + 
+             # Add descriptors
              geom_text(data=data.frame(x=c(0.1,-3,7),
                                         y=c(0.9,0.1,0.1),
                                         hjust=c(0,0,1),
@@ -1059,9 +1069,10 @@ net_gross_p_country <- function(granularity="Taxon") {
   exports <- dataset %>% 
     group_by_at(vars("Exporter", granularity)) %>% 
     summarise(Exports = sum(Qty)) %>% ungroup()
-  by_joins <- c("Exporter",granularity)
   
+  by_joins <- c("Exporter",granularity)
   names(by_joins) <- c("Importer",granularity)
+
   trades <- imports %>% 
     full_join(exports, by=by_joins) %>%
     mutate(
@@ -1113,18 +1124,17 @@ leaf_inputs <- vertices %>%
                   SRANK = SRANK / sum(SRANK)
                 )
 
-# Across each country, normalize to determine the degrees of contribution
-# as a Consumer, Dealer and Supplier
+# Get only the top countries to show degree of roles
 n_show <- 12
-leaf_inputs$MAXR <- sapply(1:nrow(leaf_inputs), function(i) {
-  max(leaf_inputs[i,"CRANK"],leaf_inputs[i,"DRANK"],leaf_inputs[i,"SRANK"])
-})
+leaf_inputs <- leaf_inputs %>% arrange(desc(PRANK)) %>% head(n_show)
+leaf_inputs$NAME <- factor(leaf_inputs$NAME, levels=unique(leaf_inputs$NAME))
 
 # Normalize between the three ranks to make sure that plot is properly "zoomed"
 # as free_y is not available for polar coordinates
+leaf_inputs$MAXR <- sapply(1:nrow(leaf_inputs), function(i) {
+  max(leaf_inputs[i,"CRANK"],leaf_inputs[i,"DRANK"],leaf_inputs[i,"SRANK"])
+})
 leaf_inputs <- leaf_inputs %>%
-                arrange(desc(PRANK)) %>%
-                head(n_show) %>%
                 mutate(
                   CRANK = CRANK / MAXR,
                   DRANK = DRANK / MAXR,
@@ -1139,8 +1149,8 @@ leaf_inputs <- leaf_inputs %>%
                                              ifelse(Key == "CLOSE",360,0))))
                 ) %>%
                 select(NAME, REGION, PRANK, Key, Value)
-leaf_inputs$NAME <- factor(leaf_inputs$NAME, levels=unique(leaf_inputs$NAME))
 
+# Plot!
 leaf_plot <- ggplot(leaf_inputs, aes(x=Key, y=Value, fill=REGION, color=REGION)) + 
               coord_polar(start=60/180*pi) +
               theme_lk(TRUE, TRUE, FALSE, FALSE) + 
@@ -1194,7 +1204,8 @@ players <- data.frame("Consumers"=to_text(consumers),
 
 ## ---- results
 
-get_players <- function(countries, col, type, asterisks=c()) {
+get_players <- function(countries, col, type, disclaimers=c()) {
+  
   c_container <- '<div class="players-container">'
   
   for (c in countries) {
@@ -1227,7 +1238,7 @@ get_players <- function(countries, col, type, asterisks=c()) {
                              comma_format(0)(c_ie$imports), 
                              comma_format(0)(c_ie$exports)))
     
-    # 3rd get most commonly traded species (Those that have been identified)
+    # 3rd get most commonly traded species
     c_animals <- country_taxon_trades %>%
                  filter(index == c) %>%
                  left_join(unique(select(dataset, Taxon, CommonName)), by="Taxon") %>%
@@ -1241,31 +1252,32 @@ get_players <- function(countries, col, type, asterisks=c()) {
                              ifelse(type=="Net_Exports","Exported","Transit")),
                              ifelse(type %in% c("Net_Imports","Net_Exports"), gsub("_"," ",type), "Quantity")))
     
-    c_asterisk <- ""
+    c_disclaimer <- ""
     for (i in 1:nrow(c_animals)) {
       animal_name <- c_animals[[i,"Name"]]
       animal_count <- c_animals[[i,type]]
       
-      has_asterisk <- animal_name %in% names(asterisks[[c]])
-      asterisk_index <- ifelse(has_asterisk, match(animal_name, names(asterisks[[c]])), "")
+      has_disclaimer <- animal_name %in% names(disclaimers[[c]])
+      disclaimer_index <- ifelse(has_disclaimer, match(animal_name, names(disclaimers[[c]])), "")
       
       c_body <- paste0(c_body,
                        sprintf("%s<sup>%s</sup> [%s]<br>",
                                animal_name,
-                               asterisk_index,
+                               disclaimer_index,
                                comma_format(0)(animal_count)))
       
-      # Add disclaimers if necessary
-      if (has_asterisk) {
-        c_asterisk <- paste0(c_asterisk,
+      # Specify disclaimers if any
+      if (has_disclaimer) {
+        c_disclaimer <- paste0(c_disclaimer,
                              sprintf("<sup>%s</sup>%s<br>",
-                                asterisk_index,
-                                asterisks[[c]][animal_name]))
+                                disclaimer_index,
+                                disclaimers[[c]][animal_name]))
       }
     }
     
-    if (c_asterisk != "") {
-      c_body <- paste0(c_body,"<br><div style='font-size:0.7em; line-height: 1.15;'>",c_asterisk,"</div>")
+    # 4th Add disclaimers if there's any
+    if (c_disclaimer != "") {
+      c_body <- paste0(c_body,"<br><div style='font-size:0.7em; line-height: 1.15;'>",c_disclaimer,"</div>")
     }
     
     c_html <- sprintf(
