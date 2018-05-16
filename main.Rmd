@@ -707,9 +707,9 @@ To find out more about each country's trading activity, please hover or click on
 
 By standardizing measurements through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
 
-* <span class="hl">Consumers</span> are countries which generate the demand of wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
-* <span class="hl">Dealers</span> are countries which connect suppliers and consumers. More stringent measures can be set up in the trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
-* <span class="hl">Suppliers</span> are countries that provide the wildlife goods. Efforts to protect the nature reserves of these countries should be emphasized. The top 5 suppliers are `r paste0(sprintf('<span class="hl">%s</span>',(suppliers %>% head(5))$NAME), collapse = ", ")`.
+* <span class="hl">Consumers</span> are countries which generate the demand for wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
+* <span class="hl">Dealers</span> are countries which connect suppliers to consumers. More stringent measures can be set up in the trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
+* <span class="hl">Suppliers</span> are countries that provide wildlife goods. Efforts to protect the nature reserves of these countries should be emphasized. The top 5 suppliers are `r paste0(sprintf('<span class="hl">%s</span>',(suppliers %>% head(5))$NAME), collapse = ", ")`.
 
 ## Limitations
 
@@ -717,11 +717,11 @@ The above analysis, though simplified, provides us with a better picture of the 
 
 * <span class="hl">One Side of the Story</span>: This study is based on data reported by governments. As such, many black market trades are missing. It would be interesting to identify these "shadow" trades by verifying the consistency of the CITES data, before integrating them back into this analysis.
 * <span class="hl">Wild</span>: Due to size constraints, we only considered trades whose sources are tagged as "Wild". By expanding the scope, additional insights could be unearthed.
-* <span class="hl">Species-Specific Fixes</span>: The methods in pre-processing are one-size-fits-all and favor expediency over accuracy. By fixing each trade according to individual species's characteristics (such as weight), we can obtain more accurate transformations of the terms into animal counts.
+* <span class="hl">Species-Specific Fixes</span>: The methods in pre-processing are generalized and favor expediency over accuracy. By fixing each trade according to individual species's characteristics (such as weight), we can obtain more accurate transformations of the terms into animal counts.
 
 ## References
 
-CITES Database 2017. <https://www.cites.org/>. Downloaded on 24 April 2018.
+CITES Database 2017. <https://www.cites.org>. Downloaded on 24 April 2018.
 
 IUCN 2017. The IUCN Red List of Threatened Species. Version 2017-3. <http://www.iucnredlist.org>. Downloaded on 25 April 2018.
 
