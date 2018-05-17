@@ -474,7 +474,7 @@ Using net exports as a proxy, we can determine the distribution of supply across
 For the purposes of this analysis, the major players in the endangered wildlife trade are countries which take part extensively as either suppliers, consumers or intermediaries. In this section, we will aim to:
 
 1. surface players that were otherwise overlooked, and
-2. rank each player according to their wildlife trading activity.
+2. rank each player according to its wildlife trading activities.
 
 [1] will allow us to have a more macro perspective on each country's role towards species degradation, while [2] will help us prioritize which countries to focus on given limited conservation resources.
 
@@ -685,7 +685,7 @@ Listed below are the top consumers, dealers and suppliers detected through the P
 pander(players, caption="The Top Suppliers, Dealers and Consumers")
 ```
 
-To find out more about each country's trading activity, please hover or click on the buttons below:
+To find out more about each country's trading activities, please hover or click on the buttons below:
 
 ```{r echo=FALSE, warning=FALSE, results='hide'}
 <<results>>
