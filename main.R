@@ -475,7 +475,7 @@ trades_by_time$IUCNLabel <- factor(trades_by_time$IUCNLabel,
 
 streamgraph_plot <- suppressWarnings(
                       streamgraph(trades_by_time, key="IUCNLabel", value="total_trades", date="Year", offset="zero",
-                                                   width=750, height=300,left=40) %>%
+                                                   width=700, height=280,left=30) %>%
                       sg_colors(axis_color = ltxt_color, tooltip_color = ltxt_color) %>%
                       # Set ticks to once every two years
                       sg_axis_x(2) %>%
