@@ -962,7 +962,7 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
               theme_void() +
               theme_lk(TRUE, FALSE, FALSE, FALSE) +
               # Prevent removing points or arrows outside the limit
-              coord_cartesian(xlim = c(-1.9,max_rank + 0.5), ylim=c(-1.0,1.7)) +
+              coord_cartesian(xlim = c(-2.0,max_rank + 0.5), ylim=c(-1.0,1.7)) +
               # Modify scales
               scale_x_continuous(expand=c(0,0.05)) +
               scale_y_continuous(expand=c(0,0.05)) +
