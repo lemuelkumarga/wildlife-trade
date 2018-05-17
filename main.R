@@ -475,10 +475,11 @@ trades_by_time$IUCNLabel <- factor(trades_by_time$IUCNLabel,
 
 streamgraph_plot <- suppressWarnings(
                       streamgraph(trades_by_time, key="IUCNLabel", value="total_trades", date="Year", offset="zero",
-                                                   width=750, height=300,left=70) %>%
+                                                   width=750, height=300,left=40) %>%
                       sg_colors(axis_color = ltxt_color, tooltip_color = ltxt_color) %>%
                       # Set ticks to once every two years
                       sg_axis_x(2) %>%
+                      sg_axis_y(tick_format = "s") %>%
                       sg_fill_manual(c(get_color("red"), get_color("red", 0.6), get_color("red", 0.3)))
                       
                     )
@@ -499,7 +500,8 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
   # Positioning of Labels
   x_str <- function (yy) { sprintf("%s-%s-01", yy - 1,
                                    ifelse(yy == 2011,"07",
-                                   ifelse(yy == 2015, "06","11"))) }
+                                   ifelse(yy == 2015, 
+                                          ifelse(iucn_lbl == "Endangered","04","06"),"11"))) }
   
   y_shift <- ifelse(iucn_lbl %in% "Endangered", -225000, -280000)
   y <- function (yy) { (trades_by_time %>%
