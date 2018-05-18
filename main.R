@@ -645,6 +645,11 @@ sunburst_plot <- sunburst(sunburst_input %>% select(Seq, Value) ,
 world_borders <- readOGR( dsn= paste0(getwd(),"/",specs_dir,"world_borders") , 
                           layer="TM_WORLD_BORDERS_SIMPL-0.3", 
                           verbose = FALSE)
+# Revise some of the country names
+world_borders@data <- world_borders@data %>%
+                      left_join(read.csv(paste0(specs_dir, "revised_country_names.csv"),sep = "|"), by="NAME") %>%
+                      mutate(NAME = ifelse(is.na(UPDATE_NAME),NAME, UPDATE_NAME)) %>%
+                      select(-UPDATE_NAME)
 
 # Dataset containing trades_by_country
 trades_by_import <- dataset %>%
@@ -889,7 +894,7 @@ edge_bundle_plot <- edge_bundle_plot +
                     scale_color_manual(values=color_dictionary, guide="none") +
                     scale_alpha_continuous(limits=c(max(nodes$ranking)-100,max(nodes$ranking)-10), na.value=0.1, guide="none") +
                     # Make sure labels are viewable
-                    expand_limits(x = c(-1.30, 1.30), y = c(-1.15, 1.15))
+                    expand_limits(x = c(-1.30, 1.30), y = c(-1.30, 1.30))
                 
 ## ---- end-of-model-graphs
 

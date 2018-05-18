@@ -553,7 +553,7 @@ To run the PageRank algorithm, we need to model the wildlife trade as a network,
 
 Using the above definitions, we are now equipped to model the wildlife trade for the period of 2001 to 2015:
 
-```{r,fig.asp=0.95}
+```{r,fig.asp=1.05}
 <<model-graphs>>
   
 edge_bundle_plot
@@ -707,7 +707,7 @@ To find out more about each country's trading activities, please hover or click 
 
 By standardizing terms through <a href="#the-roll-up-median-approach">the roll-up median approach</a> and ranking countries via <a href="#the-pagerank-algorithm">the PageRank algorithm</a>, we have identified the major players in endangered wildlife trade:
 
-* <span class="hl">Consumers</span> are countries which generate the demand for wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r gsub(", Republic of", "", paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", "))`.
+* <span class="hl">Consumers</span> are countries which generate the demand for wildlife. It is important to educate citizens in these countries to stop using wildlife products. The top 5 consumers are `r paste0(sprintf('<span class="hl">%s</span>',(consumers %>% head(5))$NAME), collapse = ", ")`.
 * <span class="hl">Dealers</span> are countries which connect suppliers to consumers. More stringent measures can be set up in the trading ports to reduce endangered wildlife trading. The top 5 dealers are `r paste0(sprintf('<span class="hl">%s</span>',(dealers %>% head(5))$NAME), collapse = ", ")`.
 * <span class="hl">Suppliers</span> are countries that provide wildlife goods. Efforts to protect the nature reserves of these countries should be emphasized. The top 5 suppliers are `r paste0(sprintf('<span class="hl">%s</span>',(suppliers %>% head(5))$NAME), collapse = ", ")`.
 
