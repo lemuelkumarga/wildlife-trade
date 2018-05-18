@@ -553,7 +553,7 @@ To run the PageRank algorithm, we need to model the wildlife trade as a network,
 
 Using the above definitions, we are now equipped to model the wildlife trade for the period of 2001 to 2015:
 
-```{r,fig.asp=1.05, fig.width = 8}
+```{r,fig.asp=0.95}
 <<model-graphs>>
   
 edge_bundle_plot
@@ -604,7 +604,7 @@ In both rankings, the top 6 countries remain the same. This implies that <span c
 
 To identify other important factors, let us compare two countries that have been promoted and demoted extensively, <span class="hl orange-text">Japan</span> and <span class="hl blue-text">Ecuador</span>:
 
-```{r, fig.asp=1.05, width=8}
+```{r, fig.asp=1.05}
 <<model-pagerank-compare>>
 
 compare_plot

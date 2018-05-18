@@ -882,14 +882,14 @@ edge_bundle_plot <- edge_bundle_plot +
                     geom_node_point(aes(filter = leaf, x = x, y=y, colour=region, size=value), alpha=0.8) +
                     geom_node_text(aes(filter = leaf, x = x*1.05, y=y*1.05, 
                                        colour=region, label=label, alpha=ranking,
-                                       angle=angle, hjust=hjust), size=2.5) +
+                                       angle=angle, hjust=hjust), size=2.7) +
                     scale_size_continuous(name="Wildlife Trading Activity (Gross Imports + Exports)",
                                           label=function (v) { sprintf("%.0f mil",v/1000000)},
                                           guide=guide_legend(override.aes = list(color=txt_color, alpha=0.8))) + 
                     scale_color_manual(values=color_dictionary, guide="none") +
                     scale_alpha_continuous(limits=c(max(nodes$ranking)-100,max(nodes$ranking)-10), na.value=0.1, guide="none") +
                     # Make sure labels are viewable
-                    expand_limits(x = c(-1.25, 1.25), y = c(-1.25, 1.25))
+                    expand_limits(x = c(-1.30, 1.30), y = c(-1.15, 1.15))
                 
 ## ---- end-of-model-graphs
 
@@ -1037,7 +1037,7 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 theme_void() +
                 theme_lk(TRUE, TRUE, FALSE, FALSE) +
                 theme(plot.margin = unit(c(20,0,20,0),'pt')) +
-                scale_y_continuous(limits=c(0,1.15)) +
+                expand_limits(y = c(0, 1.30)) +
                 # Add points, lines and labels of neighboring countries
                 geom_point(alpha=0.5) + 
                 geom_segment(data= circ_input %>% filter(tag %in% c_int), 
@@ -1046,7 +1046,7 @@ compare_plot <- ggplot(circ_input, aes(x=x, y=1, size=PRANK, color=tag)) +
                 geom_text(data= circ_input %>% filter(tag %in% c_int),
                           aes(label=label, angle=theta, hjust=hjust), 
                           y = 1.05, 
-                          size=2.2,
+                          size=3,
                           show.legend = FALSE) +
                 # Change Legends
                 scale_size_continuous(name = "PageRank",
