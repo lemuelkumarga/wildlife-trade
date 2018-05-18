@@ -1653,7 +1653,7 @@ edge_bundle_plot</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-25-1.png" width="768" style="display: block; margin: auto;" /></p>
 <p>The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target="_blank">hierarchical edge bundle</a> plot shows the degree of involvement of each country. The larger the circle, the greater the total imports and exports of the country. Unsurprisingly, <span class="hl blue-text">United States</span>, <span class="hl orange-text">China</span> and <span class="hl orange-text">Indonesia</span> have the highest total imports and exports.</p>
 <p>Other than that, we can also identify the most popular trade routes. The larger the wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>.</p>
-</section>
+</section><!--
 <section id="the-pagerank-algorithm" class="level3">
 <h3>The PageRank Algorithm</h3>
 <p>With the network constructed, we can proceed to run the PageRank algorithm:</p>
@@ -1870,7 +1870,7 @@ compare_plot</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-29-1.png" width="672" style="display: block; margin: auto;" /></p>
 <p>The diagram above shows all the countries that either Japan or Ecuador traded with. It is clear that Japan has a greater outreach than Ecuador, even though the latter has a higher total imports + exports. <span class="hl">This degree of outreach caused the algorithm to promote <span class="orange-text">Japan</span> at the expense of <span class="blue-text">Ecuador</span>.</span></p>
 </section>
-<!--
+
 <section id="decomposing-pagerank" class="level4">
 <h4>Decomposing PageRank</h4>
 <p>The PageRank algorithm allows us to determine who the major players are. However, each country has different roles to play. Some can be <span class="hl">consumers</span> (countries which fuel the demand of wildlife consumption), <span class="hl">suppliers</span> (countries which capture the wildlife and ship them out) or even <span class="hl">dealers</span> (intermediaries which connect suppliers and consumers). To reduce wildlife trading effectively, tackling different roles will require different strategies.</p>
