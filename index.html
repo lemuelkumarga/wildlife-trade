@@ -1529,7 +1529,7 @@ leaflet_export_plot</code></pre>
 <li>which other nations the country is involved with.</li>
 </ol>
 </section>
-
+<!--
 <section id="modeling-wildlife-trade" class="level3">
 <h3>Modeling Wildlife Trade</h3>
 <p>To run the PageRank algorithm, we need to model the wildlife trade as a network, with the countries represented as <span class="hl">vertices</span>. Two countries are connected by an <span class="hl">edge</span> if the two trade with one another. The degree of wildlife trading between two countries defines the <span>weight</span> of the edge. For the purposes of this study, we will use the sum of imports and exports as the edges’ weights.</p>
@@ -1653,7 +1653,7 @@ edge_bundle_plot</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-25-1.png" width="768" style="display: block; margin: auto;" /></p>
 <p>The <a href="https://www.r-graph-gallery.com/hierarchical-edge-bundling/" target="_blank">hierarchical edge bundle</a> plot shows the degree of involvement of each country. The larger the circle, the greater the total imports and exports of the country. Unsurprisingly, <span class="hl blue-text">United States</span>, <span class="hl orange-text">China</span> and <span class="hl orange-text">Indonesia</span> have the highest total imports and exports.</p>
 <p>Other than that, we can also identify the most popular trade routes. The larger the wildlife trading, the higher the opacity of that edge. The chart above surfaces some overlooked routes, such as <span class="hl blue-text">Ecuador</span> to <span class="hl orange-text">China</span>.</p>
-</section><!--
+</section>
 <section id="the-pagerank-algorithm" class="level3">
 <h3>The PageRank Algorithm</h3>
 <p>With the network constructed, we can proceed to run the PageRank algorithm:</p>
