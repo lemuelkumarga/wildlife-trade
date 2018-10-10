@@ -203,23 +203,23 @@ grViz(paste0("
 
     # Default Specs
     graph [compound = true, nodesep = .5, ranksep = .25]
-    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled]
-    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    node [fontname = '",`@f`,"', fontsize = 14, fontcolor = '",`@c`(bg),"', penwidth=0, color='",`@c`(ltxt),"', style=filled]
+    edge [fontname = '",`@f`,"', fontcolor = '",`@c`(ltxt),"', color='",`@c`(ltxt),"']
     
     # Input Specs
-    Inp [fillcolor = '",ltxt_color,"', label = '(Species s, Term t, Unit u)', shape = rectangle]
+    Inp [fillcolor = '",`@c`(ltxt),"', label = '(Species s, Term t, Unit u)', shape = rectangle]
 
     # Conclude Specs
     node [shape = oval]
-    Species_Y [label = 'Use the median quantity\nof Species s, Term t and Unit u.', fillcolor = '",get_color(1),"']
-    Genus_Y [label = 'Use the median quantity\nof Genus g, Term t and Unit u.', fillcolor = '",get_color(2),"']
-    Family_Y [label = 'Use the median quantity\nof Family f, Term t and Unit u.', fillcolor = '",get_color(3),"']
-    Order_Y [label = 'Use the median quantity\nof Order o, Term t and Unit u.', fillcolor = '",get_color(4),"']
-    Class_Y [label = 'Use the median quantity\nof Class c, Term t and Unit u.', fillcolor = '",get_color(5),"']
-    Kingdom_Y [label = 'Use the median quantity\nof Term t and Unit u (across all).', fillcolor = '",txt_color,"']
+    Species_Y [label = 'Use the median quantity\nof Species s, Term t and Unit u.', fillcolor = '",`@c`(1),"']
+    Genus_Y [label = 'Use the median quantity\nof Genus g, Term t and Unit u.', fillcolor = '",`@c`(2),"']
+    Family_Y [label = 'Use the median quantity\nof Family f, Term t and Unit u.', fillcolor = '",`@c`(3),"']
+    Order_Y [label = 'Use the median quantity\nof Order o, Term t and Unit u.', fillcolor = '",`@c`(4),"']
+    Class_Y [label = 'Use the median quantity\nof Class c, Term t and Unit u.', fillcolor = '",`@c`(5),"']
+    Kingdom_Y [label = 'Use the median quantity\nof Term t and Unit u (across all).', fillcolor = '",`@c`(txt),"']
 
     # Trigger Specs
-    node [shape = diamond, fillcolor = '",bg_color,"', fontcolor = '",txt_color,"', penwidth = 1]
+    node [shape = diamond, fillcolor = '",`@c`(bg),"', fontcolor = '",`@c`(txt),"', penwidth = 1]
     Species_T [label = 'Does the Species s\nhave >=10 records\nfor the term t and unit u?']
     { rank = same; Species_T, Species_Y }
     Genus_T [label = 'Does g (the Genus of s)\nhave >=10 records\nfor the term t and unit u?']
@@ -327,21 +327,21 @@ grViz(paste0("
 
     # Default Specs
     graph [compound = true, nodesep = .5, ranksep = .25]
-    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled]
-    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    node [fontname = '",`@f`,"', fontsize = 14, fontcolor = '",`@c`(bg),"', penwidth=0, color='",`@c`(ltxt),"', style=filled]
+    edge [fontname = '",`@f`,"', fontcolor = '",`@c`(ltxt),"', color='",`@c`(ltxt),"']
     
     # Input Specs
-    Inp [fillcolor = '",ltxt_color,"', label = 'Incomplete Taxonomy Trades from Country A to B\nfor Class c and Order o', shape = rectangle]
+    Inp [fillcolor = '",`@c`(ltxt),"', label = 'Incomplete Taxonomy Trades from Country A to B\nfor Class c and Order o', shape = rectangle]
 
     # Conclude Specs
     node [shape = oval]
-    Route_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A to B.', fillcolor = '",get_color(1),"']
-    Export_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A.', fillcolor = '",get_color(2),"']
-    Import_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades to B.', fillcolor = '",get_color(3),"']
-    All_Y [label = 'Divide the trades proportionally\namong all Class c, Order o\n trades.', fillcolor = '",get_color(4),"']
+    Route_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A to B.', fillcolor = '",`@c`(1),"']
+    Export_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades from A.', fillcolor = '",`@c`(2),"']
+    Import_Y [label = 'Divide the trades proportionally\namong Class c, Order o\n trades to B.', fillcolor = '",`@c`(3),"']
+    All_Y [label = 'Divide the trades proportionally\namong all Class c, Order o\n trades.', fillcolor = '",`@c`(4),"']
 
     # Trigger Specs
-    node [shape = diamond, fillcolor = '",bg_color,"', fontcolor = '",txt_color,"', penwidth = 1]
+    node [shape = diamond, fillcolor = '",`@c`(bg),"', fontcolor = '",`@c`(txt),"', penwidth = 1]
     Route_T [label = 'Does A to B have\nany complete taxonomy trades\ncorresponding to Class c and Order o?']
     { rank = same; Route_T, Route_Y }
     Export_T [label = 'Does A have\nany complete taxonomy exports\ncorresponding to Class c and Order o?']
@@ -488,12 +488,12 @@ grViz(paste0("
 
     # Default Specs
     graph [compound = true, nodesep = .5, ranksep = .25]
-    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled, shape = oval]
-    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    node [fontname = '",`@f`,"', fontsize = 14, fontcolor = '",`@c`(bg),"', penwidth=0, color='",`@c`(ltxt),"', style=filled, shape = oval]
+    edge [fontname = '",`@f`,"', fontcolor = '",`@c`(ltxt),"', color='",`@c`(ltxt),"']
     
-    Country_A [label = 'Country\nA', fillcolor = '",get_color(1),"']
-    Country_B [label = 'Country\nB', fillcolor = '",get_color(2),"']
-    Country_C [label = 'Country\nC', fillcolor = '",get_color(3),"']
+    Country_A [label = 'Country\nA', fillcolor = '",`@c`(1),"']
+    Country_B [label = 'Country\nB', fillcolor = '",`@c`(2),"']
+    Country_C [label = 'Country\nC', fillcolor = '",`@c`(3),"']
     { rank = same; Country_A, Country_B, Country_C }
 
     Country_A -> Country_B [ label='100' ]
@@ -518,14 +518,14 @@ grViz(paste0("
 
     # Default Specs
     graph [compound = true, nodesep = .5, ranksep = .25]
-    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled, shape = oval]
-    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    node [fontname = '",`@f`,"', fontsize = 14, fontcolor = '",`@c`(bg),"', penwidth=0, color='",`@c`(ltxt),"', style=filled, shape = oval]
+    edge [fontname = '",`@f`,"', fontcolor = '",`@c`(ltxt),"', color='",`@c`(ltxt),"']
     
-    Country_A [label = 'Country\nA', fillcolor = '",get_color(1),"']
-    Country_B [label = 'Country\nB', fillcolor = '",get_color(2),"']
-    Country_C [label = 'Country\nC', fillcolor = '",get_color(3),"']
-    Country_D [label = 'Country\nD', fillcolor = '",get_color(4),"']
-    Country_E [label = 'Country\nE', fillcolor = '",get_color(5),"']
+    Country_A [label = 'Country\nA', fillcolor = '",`@c`(1),"']
+    Country_B [label = 'Country\nB', fillcolor = '",`@c`(2),"']
+    Country_C [label = 'Country\nC', fillcolor = '",`@c`(3),"']
+    Country_D [label = 'Country\nD', fillcolor = '",`@c`(4),"']
+    Country_E [label = 'Country\nE', fillcolor = '",`@c`(5),"']
 
     Country_A -> Country_B [ label='  100' ]
     Country_B -> Country_C [ label='  99' ]
@@ -632,13 +632,13 @@ grViz(paste0("
 
     # Default Specs
     graph [compound = true, nodesep = .5, ranksep = .25]
-    node [fontname = '",def_font,"', fontsize = 14, fontcolor = '",bg_color,"', penwidth=0, color='",ltxt_color,"', style=filled, shape = oval]
-    edge [fontname = '",def_font,"', fontcolor = '",ltxt_color,"', color='",ltxt_color,"']
+    node [fontname = '",`@f`,"', fontsize = 14, fontcolor = '",`@c`(bg),"', penwidth=0, color='",`@c`(ltxt),"', style=filled, shape = oval]
+    edge [fontname = '",`@f`,"', fontcolor = '",`@c`(ltxt),"', color='",`@c`(ltxt),"']
     
-    PageRank [fillcolor = '",ltxt_color,"', shape=diamond]
-    ConsumerRank [fillcolor = '",get_color("red"),"']
-    DealerRank [fillcolor = '",sec_color,"']
-    SupplierRank [fillcolor = '",get_color("purple"),"']
+    PageRank [fillcolor = '",`@c`(ltxt),"', shape=diamond]
+    ConsumerRank [fillcolor = '",`@c`(red),"']
+    DealerRank [fillcolor = '",`@c`(sec),"']
+    SupplierRank [fillcolor = '",`@c`(purple),"']
 
     PageRank -> ConsumerRank [ label=' x Net Imports %' ]
     PageRank-> DealerRank [ label='  x Transit %' ]
@@ -693,15 +693,15 @@ To find out more about each country's trading activities, please hover or click 
 
 #### Consumers
 
-`r get_players((consumers %>% head(5))$index,get_color("red"), type="Net_Imports")`
+`r get_players((consumers %>% head(5))$index,'@c'(red), type="Net_Imports")`
 
 #### Dealers
 
-`r get_players((dealers %>% head(5))$index,heading_color, type="Transits", disclaimers=list("FR"=c("European Eel"="Due to missing black market exports, France is considered an intermediary stop for European Eels, even though they originate from the country. See Limitations.")))`
+`r get_players((dealers %>% head(5))$index,'@c'(heading), type="Transits", disclaimers=list("FR"=c("European Eel"="Due to missing black market exports, France is considered an intermediary stop for European Eels, even though they originate from the country. See Limitations.")))`
 
 #### Suppliers
 
-`r get_players((suppliers %>% head(5))$index,get_color("purple"), type="Net_Exports", disclaimers=list("MX"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for Mexico. See Limitations."), "CN"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for China. See Limitations.")))`
+`r get_players((suppliers %>% head(5))$index,'@c'(purple), type="Net_Exports", disclaimers=list("MX"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for Mexico. See Limitations."), "CN"=c("European Eel"="Due to missing black market imports, European Eels are considered as top providers for China. See Limitations.")))`
 
 ## Summary of Results
 

@@ -476,11 +476,11 @@ trades_by_time$IUCNLabel <- factor(trades_by_time$IUCNLabel,
 streamgraph_plot <- suppressWarnings(
                       streamgraph(trades_by_time, key="IUCNLabel", value="total_trades", date="Year", offset="zero",
                                                    width=700, height=280,left=30) %>%
-                      sg_colors(axis_color = ltxt_color, tooltip_color = ltxt_color) %>%
+                      sg_colors(axis_color = `@c`(ltxt), tooltip_color = `@c`(ltxt)) %>%
                       # Set ticks to once every two years
                       sg_axis_x(2) %>%
                       sg_axis_y(tick_format = "s") %>%
-                      sg_fill_manual(c(get_color("red"), get_color("red", 0.6), get_color("red", 0.3)))
+                      sg_fill_manual(c(`@c`(red), `@c`(red, 0.6), `@c`(red, 0.3)))
                       
                     )
 
@@ -509,7 +509,7 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
                           summarise(total_trades = sum(total_trades)))$total_trades + y_shift }
   
   # Labels for 2011 and 2012-2015
-  label_color <- ifelse(iucn_lbl == "Vulnerable", txt_color, bg_color)
+  label_color <- ifelse(iucn_lbl == "Vulnerable", `@c`(txt), `@c`(bg))
   label_abs <- function (yy) {
                   val <- (trades_by_time %>% 
                           filter(Year == yy & IUCNLabel == iucn_lbl))$total_trades
@@ -533,9 +533,9 @@ for (iucn_lbl in c("Critical","Endangered","Vulnerable")) {
 
 # Add annotation for each section
 streamgraph_plot <- streamgraph_plot %>%
-                    sg_annotate("Critical", "2014-01-01",2000000, color = fade_color(get_color("red"),0.7)) %>%
-                    sg_annotate("Endangered", "2013-05-01",1000000, color = fade_color(get_color("red", 0.6),0.7)) %>%
-                    sg_annotate("Vulnerable", "2013-07-01",200000, color = fade_color(get_color("red", 0.3),0.7))
+                    sg_annotate("Critical", "2014-01-01",2000000, color = `@c`(red,0.7)) %>%
+                    sg_annotate("Endangered", "2013-05-01",1000000, color = `@c`(red, 0.6 * 0.7)) %>%
+                    sg_annotate("Vulnerable", "2013-07-01",200000, color = `@c`(red, 0.3 * 0.7))
         
 ## ---- end-of-exp-time
 
@@ -559,14 +559,14 @@ trades_by_purpose <- dataset %>%
                      mutate(total_trades = as.integer(total_trades)) %>%
                      ungroup()
 
-w_colors <- c("Commercial"=get_color("red"),
-              "Hunting"=get_color("orange"),
-              "Personal"=get_color("yellow"),
-              "Medical"=get_color("purple"),
-              "Science"=get_color("blue"),
-              "Conservation"=get_color("green"),
-              "Others/Unknown"=ltxt_color,
-              ltxt_color)
+w_colors <- c("Commercial"=`@c`(red),
+              "Hunting"=`@c`(orange),
+              "Personal"=`@c`(yellow),
+              "Medical"=`@c`(purple),
+              "Science"=`@c`(blue),
+              "Conservation"=`@c`(green),
+              "Others/Unknown"=`@c`(ltxt),
+              `@c`(ltxt))
 waffle_input <- trades_by_purpose$total_trades
 names(waffle_input) <- trades_by_purpose$Purpose
 waffle_input <- waffle_input[order(factor(names(waffle_input),levels = names(w_colors)))] %>%
@@ -617,7 +617,7 @@ sunburst_input <- rbind(sunburst_input,
                   arrange(Depth, desc(CategorySize), desc(Value))
 
 # Set the colors for each node
-sunburst_palette <- get_color("palette")(length(unique(sunburst_input$Category)))
+sunburst_palette <- `@c`(palette)(length(unique(sunburst_input$Category)))
 names(sunburst_palette) <- unique(sunburst_input$Category)
 sunburst_cdomain <- sunburst_input$Node
 sunburst_crange <- sapply(1:nrow(sunburst_input), 
@@ -689,7 +689,7 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   # Prevent zooming out infinitely
   leaflet_ptOptions <- providerTileOptions(minZoom = 1)
   # Get colors of each polygon based on trading intensity
-  leaflet_palette <- colorQuantile(c(get_color(map_col,0.1),get_color(map_col)),
+  leaflet_palette <- colorQuantile(c(`@c_`(map_col,0.1),`@c_`(map_col)),
                                    polygons$net_val,
                                    n = 5, 
                                    na.color = "#ffffffff")
@@ -711,10 +711,10 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   # Change background color and foreground color based on fill of the hovered area
   leaflet_labelOptions <- lapply(leaflet_palette(polygons$net_val), function (c){ 
                             luminosity <- as(hex2RGB(c), "polarLUV")@coords[1]
-                            fg_color <- ifelse(luminosity <= 70, bg_color, txt_color)
+                            fg_color <- ifelse(luminosity <= 70, `@c`(bg), `@c`(txt))
                             labelOptions(
                               style = list("background-color" = c,
-                                           "font-family" = def_font,
+                                           "font-family" = `@f`,
                                            "font-weight" = "normal", 
                                            "color" = fg_color,
                                            "border-width" = "thin",
@@ -731,8 +731,8 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                     library = 'fa',
                     markerColor = 'gray',
                     text = sapply(marker_data@data$rank, function(x) { 
-                      sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", bg_color, toOrdinal(x)) }),
-                    fontFamily = def_font
+                      sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", `@c`(bg), toOrdinal(x)) }),
+                    fontFamily = `@f`
                   )
   # Options when marker is clicked
   marker_options <- markerOptions(opacity = 0.9)
@@ -740,9 +740,9 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   marker_popup <- sprintf(
                     paste0("<span style='font-family: var(--font-family); color: %s'>[%s] <span style='font-family: var(--heading-family); color: %s; font-size: 1.2em'>%s</span><br/>",
                            "%s %s</span>"),
-                    txt_color,
+                    `@c`(txt),
                     sapply(marker_data@data$rank, toOrdinal), 
-                    get_color(map_col),
+                    `@c_`(map_col),
                     marker_data@data$NAME, 
                     comma(round(marker_data$net_val)), 
                     map_unt) %>% 
@@ -813,7 +813,7 @@ input_edges <- edges %>% filter(v1 %in% input_vertices$index & v2 %in% input_ver
 
 # Create Inputs For The Model
 # Color palette for edges and input_vertices
-color_dictionary <- get_color("palette")(length(unique(input_vertices$REGION)))
+color_dictionary <- `@c`(palette)(length(unique(input_vertices$REGION)))
 names(color_dictionary) <- unique(input_vertices$REGION)
 n_points <- 100
 
@@ -890,7 +890,7 @@ edge_bundle_plot <- edge_bundle_plot +
                                        angle=angle, hjust=hjust), size=2.7) +
                     scale_size_continuous(name="Wildlife Trading Activity (Gross Imports + Exports)",
                                           label=function (v) { sprintf("%.0f mil",v/1000000)},
-                                          guide=guide_legend(override.aes = list(color=txt_color, alpha=0.8))) + 
+                                          guide=guide_legend(override.aes = list(color=`@c`(txt), alpha=0.8))) + 
                     scale_color_manual(values=color_dictionary, guide="none") +
                     scale_alpha_continuous(limits=c(max(nodes$ranking)-100,max(nodes$ranking)-10), na.value=0.1, guide="none") +
                     # Make sure labels are viewable
@@ -943,22 +943,22 @@ hist_plot <- ggplot(hist_input) +
              scale_x_continuous(expand=c(0,0)) + 
              scale_y_continuous(expand=c(0,0)) +
              # Add Mean line
-             geom_vline(data=data.frame(1), xintercept = 0, linetype="dashed", colour=ltxt_color) + 
+             geom_vline(data=data.frame(1), xintercept = 0, linetype="dashed", colour=`@c`(ltxt)) + 
              # Add descriptors
              geom_text(data=data.frame(x=c(0.1,-3,7),
                                         y=c(0.9,0.1,0.1),
                                         hjust=c(0,0,1),
                                         label=c("Mean","Less Important","More Important")),
                         aes(x=x, y=y, hjust=hjust, label=label),
-                        colour = ltxt_color,
-                        family = def_font) + 
+                        colour = `@c`(ltxt),
+                        family = `@f`) + 
              # Add geom density
              geom_density(aes(x=val, fill=type, colour=type), alpha=0.25) +
-             scale_fill_manual(name="Methodology", values=get_color()[1:2], 
+             scale_fill_manual(name="Methodology", values=`@c`()[1:2], 
                                labels=c("Z_VAL" = "Imports + Exports",
                                         "Z_PRANK" = "PageRank"),
-                               guide=guide_legend(override.aes = list(color = get_color()[1:2]))) +
-             scale_color_manual(guide="none", values=get_color()[1:2])
+                               guide=guide_legend(override.aes = list(color = `@c`()[1:2]))) +
+             scale_color_manual(guide="none", values=`@c`()[1:2])
 
 ## ---- end-of-model-pagerank-hist
 
@@ -973,7 +973,7 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
               # Modify scales
               scale_x_continuous(expand=c(0,0.05)) +
               scale_y_continuous(expand=c(0,0.05)) +
-              scale_color_manual(values=c(color_dictionary,"NONE"=fade_color(txt_color,0.2)),
+              scale_color_manual(values=c(color_dictionary,"NONE"=`@c`(txt,0.2)),
                                  guide="none") +
               scale_size_continuous(guide="none") +
               # Add descriptors
@@ -983,12 +983,12 @@ rank_plot <- ggplot(pr_inputs, aes(colour=HAS_DIFF)) +
                                         label=c("Imports\n+ Exports","PageRank",
                                                 "More Important","Less Important")),
                         aes(x=x, y=y, hjust=hjust, label=label),
-                        colour = ltxt_color,
-                        family = def_font, 
+                        colour = `@c`(ltxt),
+                        family = `@f`, 
                         size = 3) +
               geom_segment(data=data.frame(1),
                            aes(x=max_rank, xend=0.5,y=-0.8,yend=-0.8),
-                           colour = ltxt_color,
+                           colour = `@c`(ltxt),
                            arrow = arrow(length = unit(0.2,"cm"), type="closed")) +
               # Add imports + exports ranks
               geom_text(aes(x=R_VAL, y=-0.1, label=NAME_SHORT), angle=90, hjust=1, size = 3) +
@@ -1034,7 +1034,7 @@ circ_input$tag <- sapply(tc_vertices$index, function (ix) {
                     else { "NONE" }
                   })
 
-compare_colors <- c(fade_color(txt_color,0.2), color_dictionary[[V1_vertice$REGION]],color_dictionary[[V2_vertice$REGION]])
+compare_colors <- c(`@c`(txt,0.2), color_dictionary[[V1_vertice$REGION]],color_dictionary[[V2_vertice$REGION]])
 names(compare_colors) <- c("BOTH", c_int)
 compare_labels <- c("Both",V1_vertice$NAME,V2_vertice$NAME)
 names(compare_labels) <- c("BOTH",c_int)
@@ -1165,8 +1165,8 @@ leaf_plot <- ggplot(leaf_inputs, aes(x=Key, y=Value, fill=REGION, color=REGION))
                 axis.line.x = element_blank(),
                 axis.ticks.x = element_blank(),
                 axis.title.x = element_blank(),
-                axis.text.x = element_text(colour=ltxt_color, size = 8, angle=c(-60,0,60)),
-                panel.grid.major.x = element_line(colour=fade_color(txt_color,0.2)),
+                axis.text.x = element_text(colour=`@c`(ltxt), size = 8, angle=c(-60,0,60)),
+                panel.grid.major.x = element_line(colour=`@c`(txt,0.2)),
                 axis.line.y = element_blank(),
                 axis.ticks.y = element_blank(),
                 axis.title.y = element_blank(),
@@ -1186,7 +1186,7 @@ leaf_plot <- ggplot(leaf_inputs, aes(x=Key, y=Value, fill=REGION, color=REGION))
               geom_text(data=leaf_inputs %>% select(NAME, REGION) %>% unique(),
                         aes(label=NAME),
                         x=0,y=0, 
-                        family=def_font,
+                        family=`@f`,
                         alpha=0.9) + 
               facet_wrap(~NAME)
 
