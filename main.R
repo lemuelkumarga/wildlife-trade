@@ -750,7 +750,7 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   
   # Create Leaflet plot
   leaflet(polygons, width = "100%") %>%
-    addProviderTiles("CartoDB.Positron",options = leaflet_ptOptions) %>%
+    addTiles('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',options = leaflet_ptOptions) %>%
     setMaxBounds(-200, 100,200,-100) %>%
     setView(0, 30, 1) %>%
     addPolygons(stroke = FALSE, 
