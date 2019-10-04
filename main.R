@@ -1242,8 +1242,8 @@ get_players <- function(countries, col, type, disclaimers=c()) {
     c_body <- paste0(c_body, 
                      sprintf("<span style='font-size:0.8em'>Imports/Exports:</span> <span class='hl' style='color: %s'>%s/%s</span><br><br>", 
                              col,
-                             comma_format(0)(c_ie$imports), 
-                             comma_format(0)(c_ie$exports)))
+                             comma_format(1)(c_ie$imports), 
+                             comma_format(1)(c_ie$exports)))
     
     # 3rd get most commonly traded species
     c_animals <- country_taxon_trades %>%
@@ -1271,7 +1271,7 @@ get_players <- function(countries, col, type, disclaimers=c()) {
                        sprintf("%s<sup>%s</sup> [%s]<br>",
                                animal_name,
                                disclaimer_index,
-                               comma_format(0)(animal_count)))
+                               comma_format(1)(animal_count)))
       
       # Specify disclaimers if any
       if (has_disclaimer) {
