@@ -14,8 +14,8 @@ options(stringsAsFactors = FALSE)
 # https://stackoverflow.com/questions/34333624/trouble-installing-rgdal
 # (Kudos to @Stophface)
 packages <- c("dplyr","ggplot2","tidyr","pander","scales","DiagrammeR","data.table","parallel",
-              "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR","rgdal",
-              "leaflet","colorspace","toOrdinal","igraph","ggraph","grDevices")
+              "htmlwidgets","streamgraph","purrr","EnvStats", "waffle","sunburstR",
+              "leaflet","colorspace","toOrdinal","igraph","ggraph","grDevices","sf")
 load_or_install.packages(packages)
 
 data_dir <- "data/"
@@ -642,11 +642,11 @@ sunburst_plot <- sunburst(sunburst_input %>% select(Seq, Value) ,
 
 # Shape Files Courtesy of 
 # http://thematicmapping.org/downloads/world_borders.php
-world_borders <- readOGR( dsn= paste0(getwd(),"/",specs_dir,"world_borders") , 
+world_borders <- st_read( dsn= paste0(getwd(),"/",specs_dir,"world_borders") , 
                           layer="TM_WORLD_BORDERS_SIMPL-0.3", 
-                          verbose = FALSE)
+                          quiet = TRUE)
 # Revise some of the country names
-world_borders@data <- world_borders@data %>%
+world_borders <- world_borders %>%
                       left_join(read.csv(paste0(specs_dir, "revised_country_names.csv"),sep = "|"), by="NAME") %>%
                       mutate(NAME = ifelse(is.na(UPDATE_NAME),NAME, UPDATE_NAME)) %>%
                       select(-UPDATE_NAME)
@@ -676,13 +676,12 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
   trade_dataset["net_val"] <- ifelse(isImport, trade_dataset["net_imports"], trade_dataset["net_exports"])
   
   # Join trade information into world data
-  polygons <- world_borders
-  polygons@data <- polygons@data %>%
+  polygons <- world_borders %>%
                    left_join(trade_dataset, by=c("ISO2"="Importer")) %>%
                    mutate(rank = rank(desc(net_val),ties="first"))
   
   # Remove those countries with no wildlife trades
-  polygons <- polygons[!is.na(polygons@data$net_val),]
+  polygons <- polygons[!is.na(polygons$net_val),]
   
   
   # Create leaflet arguments
@@ -702,9 +701,9 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                         paste0("<span style='font-family: var(--heading-family); font-size: 1.2em'>%s</span><br/>",
                                "Ranked <span style='font-size:1.2em'>%s</span> (out of %s)<br/>",
                                "%s %s"),
-                        polygons@data$NAME, 
-                        sapply(polygons@data$rank, toOrdinal), 
-                        length(polygons@data$rank),
+                        polygons$NAME, 
+                        sapply(polygons$rank, toOrdinal), 
+                        length(polygons$rank),
                         comma(round(polygons$net_val)), 
                         map_unt) %>% 
                       lapply(htmltools::HTML)
@@ -724,13 +723,13 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                           })
   
   # Markers for Top 5 countries
-  marker_data <- polygons[polygons@data$rank <= 5,]
+  marker_data <- polygons[polygons$rank <= 5,]
   # Create icons for the Top 5
   marker_icons <- awesomeIcons(
                     # To prevent bootstrap 3.3.7 from loading and removing cosmo theme css, metadata for mobile
                     library = 'fa',
                     markerColor = 'gray',
-                    text = sapply(marker_data@data$rank, function(x) { 
+                    text = sapply(marker_data$rank, function(x) { 
                       sprintf("<span style='color: %s; font-size:0.8em'>%s</span>", `@c`(bg), toOrdinal(x)) }),
                     fontFamily = `@f`
                   )
@@ -741,9 +740,9 @@ get_leaflet_plot <- function(trade_dataset, isImport = TRUE) {
                     paste0("<span style='font-family: var(--font-family); color: %s'>[%s] <span style='font-family: var(--heading-family); color: %s; font-size: 1.2em'>%s</span><br/>",
                            "%s %s</span>"),
                     `@c`(txt),
-                    sapply(marker_data@data$rank, toOrdinal), 
+                    sapply(marker_data$rank, toOrdinal), 
                     `@c_`(map_col),
-                    marker_data@data$NAME, 
+                    marker_data$NAME, 
                     comma(round(marker_data$net_val)), 
                     map_unt) %>% 
                     lapply(htmltools::HTML)
@@ -782,15 +781,15 @@ leaflet_export_plot <- get_leaflet_plot(trades_by_country, FALSE)
 ## ---- model-graphs
 
 max_label_char <- 20
-vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>%
+vertices <- unique(c(dataset$Importer,dataset$Exporter)) %>% 
             sort() %>%
-            { data.frame(index=.)} %>%
-            inner_join(world_borders@data, by=c("index"="ISO2")) %>%
+            { data.frame(index=.)} %>% 
+            inner_join(world_borders, by=c("index"="ISO2")) %>%
             # Create labels that truncate names
             mutate(NAME_SHORT = ifelse(nchar(NAME) >= max_label_char, sprintf("%s...",substr(NAME,1,max_label_char - 3)), NAME),
                    REGION = paste0("REGION-",REGION),
                    SUBREGION = paste0("SUBREGION-",SUBREGION)) %>%
-            arrange(REGION, SUBREGION)
+            arrange(REGION, SUBREGION) 
 
 edges <- dataset %>%
          filter(Importer %in% vertices$index & 
@@ -1182,7 +1181,7 @@ leaf_plot <- ggplot(leaf_inputs, aes(x=Key, y=Value, fill=REGION, color=REGION))
               scale_y_continuous(limits=c(0,NA)) +
               scale_fill_manual(values = color_dictionary, guide = "none") + 
               scale_color_manual(values = color_dictionary,guide = "none") +
-              geom_polygon(alpha=0.2, size=0) + 
+              geom_area(alpha=0.2, size=0) + 
               geom_text(data=leaf_inputs %>% select(NAME, REGION) %>% unique(),
                         aes(label=NAME),
                         x=0,y=0, 
